@@ -1,0 +1,50 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from . import models, crud, schemas
+from .database import engine, SessionLocal
+from .api.endpoints import usuarios, veiculos, viagens, despesas, atividades, auth
+
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
+app.mount("/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(usuarios.router, prefix="/usuarios", tags=["usuarios"])
+app.include_router(veiculos.router, prefix="/veiculos", tags=["veiculos"])
+app.include_router(viagens.router, prefix="/viagens", tags=["viagens"])
+app.include_router(despesas.router, prefix="/despesas", tags=["despesas"])
+app.include_router(atividades.router, prefix="/atividades", tags=["atividades"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+
+
+@app.on_event("startup")
+def seed_admin():
+    db = SessionLocal()
+    try:
+        if crud.get_usuarios(db, limit=1):
+            return
+        crud.create_usuario(
+            db=db,
+            usuario=schemas.UsuarioCreate(
+                nome="Administrador",
+                email="admin@empresa.com",
+                senha="admin123",
+                tipousuario="admin",
+                tem_cnh=False,
+            ),
+        )
+    finally:
+        db.close()
+
+@app.get("/")
+def read_root():
+    return {"message": "Bem-vindo à API de Viagens Corporativas!"}
