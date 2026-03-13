@@ -1,6 +1,10 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _utcnow_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Funções CRUD para Usuário
 def get_usuario(db: Session, usuario_id: int):
@@ -176,7 +180,7 @@ def create_viagem(db: Session, viagem: schemas.ViagemCreate):
 def registrar_saida_real(db: Session, viagem_id: int):
     db_viagem = get_viagem(db, viagem_id)
     if db_viagem:
-        db_viagem.data_hora_real_saida = datetime.now()
+        db_viagem.data_hora_real_saida = _utcnow_naive()
         db_viagem.status = "em_andamento"
         db.commit()
         db.refresh(db_viagem)
@@ -185,7 +189,7 @@ def registrar_saida_real(db: Session, viagem_id: int):
 def registrar_chegada_real(db: Session, viagem_id: int, km_chegada: float = None):
     db_viagem = get_viagem(db, viagem_id)
     if db_viagem:
-        db_viagem.data_hora_real_chegada = datetime.now()
+        db_viagem.data_hora_real_chegada = _utcnow_naive()
         db_viagem.status = "finalizada"
         if km_chegada is not None and db_viagem.transporte:
             db_viagem.transporte.km_chegada = km_chegada
@@ -262,7 +266,7 @@ def create_atividade(db: Session, atividade: schemas.AtividadeCreate, viagem_id:
 def iniciar_atividade(db: Session, atividade_id: int):
     db_atividade = get_atividade(db, atividade_id)
     if db_atividade:
-        db_atividade.inicio = datetime.now()
+        db_atividade.inicio = _utcnow_naive()
         db_atividade.status = "ativa"
         db.commit()
         db.refresh(db_atividade)
@@ -271,7 +275,7 @@ def iniciar_atividade(db: Session, atividade_id: int):
 def finalizar_atividade(db: Session, atividade_id: int):
     db_atividade = get_atividade(db, atividade_id)
     if db_atividade:
-        db_atividade.fim = datetime.now()
+        db_atividade.fim = _utcnow_naive()
         db_atividade.status = "finalizada"
         db.commit()
         db.refresh(db_atividade)
@@ -279,7 +283,7 @@ def finalizar_atividade(db: Session, atividade_id: int):
 
 # Funções CRUD para Pausa
 def create_pausa(db: Session, pausa: schemas.PausaCreate, atividade_id: int):
-    db_pausa = models.Pausa(motivo=pausa.motivo, inicio=datetime.now(), atividade_id=atividade_id)
+    db_pausa = models.Pausa(motivo=pausa.motivo, inicio=_utcnow_naive(), atividade_id=atividade_id)
     db_atividade = get_atividade(db, atividade_id)
     if db_atividade:
         db_atividade.status = "pausada"
@@ -291,7 +295,7 @@ def create_pausa(db: Session, pausa: schemas.PausaCreate, atividade_id: int):
 def finalizar_pausa(db: Session, pausa_id: int):
     db_pausa = db.query(models.Pausa).filter(models.Pausa.id == pausa_id).first()
     if db_pausa:
-        db_pausa.fim = datetime.now()
+        db_pausa.fim = _utcnow_naive()
         db_atividade = get_atividade(db, db_pausa.atividade_id)
         if db_atividade:
             db_atividade.status = "ativa"
