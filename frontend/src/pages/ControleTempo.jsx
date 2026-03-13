@@ -45,7 +45,7 @@ const ControleTempo = () => {
       timer = setInterval(() => {
         const start = new Date(activeActivity.inicio);
         const diff = differenceInSeconds(new Date(), start);
-        setSeconds(diff);
+        setSeconds(diff > 0 ? diff : 0);
       }, 1000);
     } else {
       setSeconds(0);

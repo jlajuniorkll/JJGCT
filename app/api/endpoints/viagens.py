@@ -1,12 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from ... import crud, models, schemas
 from ...database import SessionLocal
 
 router = APIRouter()
+
+
+def _ensure_utc(dt):
+    if dt is None:
+        return None
+    if getattr(dt, "tzinfo", None) is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _normalize_viagem(db_viagem):
+    if db_viagem is None:
+        return None
+
+    db_viagem.data_hora_real_saida = _ensure_utc(getattr(db_viagem, "data_hora_real_saida", None))
+    db_viagem.data_hora_real_chegada = _ensure_utc(getattr(db_viagem, "data_hora_real_chegada", None))
+
+    for atv in getattr(db_viagem, "atividades", []) or []:
+        atv.inicio = _ensure_utc(getattr(atv, "inicio", None))
+        atv.fim = _ensure_utc(getattr(atv, "fim", None))
+        for pausa in getattr(atv, "pausas", []) or []:
+            pausa.inicio = _ensure_utc(getattr(pausa, "inicio", None))
+            pausa.fim = _ensure_utc(getattr(pausa, "fim", None))
+
+    return db_viagem
 
 # Dependency
 def get_db():
@@ -33,6 +58,8 @@ def create_viagem(viagem: schemas.ViagemCreate, db: Session = Depends(get_db)):
 @router.get("/", response_model=List[schemas.Viagem])
 def read_viagens(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     viagens = crud.get_viagens(db, skip=skip, limit=limit)
+    for v in viagens:
+        _normalize_viagem(v)
     return viagens
 
 @router.get("/{viagem_id}", response_model=schemas.Viagem)
@@ -40,7 +67,7 @@ def read_viagem(viagem_id: int, db: Session = Depends(get_db)):
     db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
-    return db_viagem
+    return _normalize_viagem(db_viagem)
 
 @router.post("/{viagem_id}/cancelar", response_model=schemas.Viagem)
 def cancelar_viagem(viagem_id: int, db: Session = Depends(get_db)):
@@ -64,7 +91,7 @@ def registrar_saida(viagem_id: int, db: Session = Depends(get_db)):
     if db_viagem.status != "planejada":
         raise HTTPException(status_code=400, detail="A saída só pode ser registrada para viagens planejadas")
 
-    return crud.registrar_saida_real(db, viagem_id=viagem_id)
+    return _normalize_viagem(crud.registrar_saida_real(db, viagem_id=viagem_id))
 
 @router.post("/{viagem_id}/registrar-chegada", response_model=schemas.Viagem)
 def registrar_chegada(viagem_id: int, km_chegada: float = None, db: Session = Depends(get_db)):
@@ -86,7 +113,7 @@ def registrar_chegada(viagem_id: int, km_chegada: float = None, db: Session = De
         if km_chegada is None:
             raise HTTPException(status_code=400, detail="KM de chegada é obrigatório para este meio de transporte.")
 
-    return crud.registrar_chegada_real(db, viagem_id=viagem_id, km_chegada=km_chegada)
+    return _normalize_viagem(crud.registrar_chegada_real(db, viagem_id=viagem_id, km_chegada=km_chegada))
 
 @router.get("/{viagem_id}/relatorio", response_model=schemas.RelatorioViagem)
 def relatorio_viagem(viagem_id: int, db: Session = Depends(get_db)):
@@ -114,7 +141,7 @@ def relatorio_viagem(viagem_id: int, db: Session = Depends(get_db)):
     total_despesas = sum([d.valor for d in db_viagem.despesas])
 
     return {
-        "viagem": db_viagem,
+        "viagem": _normalize_viagem(db_viagem),
         "distancia_percorrida_km": distancia_percorrida,
         "total_horas_trabalhadas": str(total_horas_trabalhadas),
         "total_despesas": total_despesas
