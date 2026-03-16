@@ -2,7 +2,8 @@ import axios from 'axios';
 
 const api = axios.create({
    //baseURL: 'http://localhost:8000',
-  baseURL: 'http://34.61.244.240:8000',
+  // baseURL: 'http://34.61.244.240:8000',
+  baseURL: '/api',
 });
 
 export const userService = {
