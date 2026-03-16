@@ -12,7 +12,7 @@ app = FastAPI(
     docs_url="/api/docs",
     openapi_url="/api/openapi.json"
 )
-app.mount("/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
+app.mount("/api/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
