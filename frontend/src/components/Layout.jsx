@@ -11,7 +11,8 @@ import {
   X,
   Clock,
   DollarSign,
-  FileText
+  FileText,
+  Settings
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -30,6 +31,7 @@ const Layout = ({ children }) => {
     { name: 'Viagens', icon: MapPin, path: '/viagens' },
     { name: 'Usuários', icon: Users, path: '/admin/usuarios', adminOnly: true },
     { name: 'Veículos', icon: Car, path: '/admin/veiculos', adminOnly: true },
+    { name: 'Configurações', icon: Settings, path: '/admin/configuracoes', adminOnly: true },
   ];
 
   const filteredItems = menuItems.filter(item => !item.adminOnly || user?.tipousuario === 'admin');

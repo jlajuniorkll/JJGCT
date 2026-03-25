@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { tripService, expenseService } from '../services/api';
+import { tripService, expenseService, configService } from '../services/api';
 import { 
   MapPin, 
   Calendar, 
@@ -26,6 +26,7 @@ const DetalhesViagem = () => {
   const navigate = useNavigate();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -42,12 +43,26 @@ const DetalhesViagem = () => {
     fetchTrip();
   }, [fetchTrip]);
 
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await configService.get();
+        const statuses = res.data?.trip_edit_blocked_statuses;
+        if (Array.isArray(statuses)) setBlockedStatuses(statuses);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   if (loading) return <div className="p-8 text-center animate-pulse">Carregando detalhes...</div>;
   if (!trip) return <div className="p-8 text-center">Viagem não encontrada.</div>;
 
   const canFinish =
     trip.status === 'em_andamento' &&
     (trip.atividades || []).every((a) => a.status === 'finalizada');
+  const canEdit = !blockedStatuses.includes(trip.status);
 
   const statusColors = {
     planejada: 'bg-indigo-100 text-indigo-700',
@@ -81,6 +96,15 @@ const DetalhesViagem = () => {
         </div>
 
         <div className="flex gap-2">
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => navigate(`/viagens/${trip.id}/editar`)}
+              className="bg-white hover:bg-gray-50 text-gray-700 px-6 py-3 rounded-xl font-bold shadow-sm border border-gray-200 transition-all active:scale-[0.98] flex items-center gap-2"
+            >
+              <Pencil size={20} /> Editar
+            </button>
+          )}
           {(trip.status === 'planejada' || trip.status === 'em_andamento') && (
             <button
               type="button"

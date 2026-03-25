@@ -6,6 +6,23 @@ const api = axios.create({
   baseURL: '/api',
 });
 
+api.interceptors.request.use((config) => {
+  const raw = localStorage.getItem('user');
+  if (raw) {
+    try {
+      const user = JSON.parse(raw);
+      if (user?.id) {
+        config.headers = config.headers || {};
+        config.headers['X-User-Id'] = user.id;
+      }
+    } catch (err) {
+      console.error(err);
+      localStorage.removeItem('user');
+    }
+  }
+  return config;
+});
+
 export const userService = {
   list: () => api.get('/usuarios/'),
   create: (data) => api.post('/usuarios/', data),
@@ -30,8 +47,16 @@ export const tripService = {
   list: (params) => api.get('/viagens/', { params }),
   create: (data) => api.post('/viagens/', data),
   get: (id) => api.get(`/viagens/${id}`),
+  update: (id, data) => api.put(`/viagens/${id}`, data),
   cancel: (id) => api.post(`/viagens/${id}/cancelar`),
-  registerDeparture: (id) => api.post(`/viagens/${id}/registrar-saida`),
+  registerDeparture: (id, { km_saida, motorista_id } = {}) => {
+    const params = {};
+    if (km_saida !== undefined && km_saida !== null && `${km_saida}`.trim() !== '') {
+      params.km_saida = km_saida;
+    }
+    if (motorista_id) params.motorista_id = motorista_id;
+    return api.post(`/viagens/${id}/registrar-saida`, null, { params });
+  },
   registerArrival: (id, km_chegada) => {
     const params = {};
     if (km_chegada !== undefined && km_chegada !== null && `${km_chegada}`.trim() !== '') {
@@ -40,6 +65,11 @@ export const tripService = {
     return api.post(`/viagens/${id}/registrar-chegada`, null, { params });
   },
   getReport: (id) => api.get(`/viagens/${id}/relatorio`),
+};
+
+export const configService = {
+  get: () => api.get('/config/'),
+  update: (data) => api.put('/config/', data),
 };
 
 export const expenseService = {

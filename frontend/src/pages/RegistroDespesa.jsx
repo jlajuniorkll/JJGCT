@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api, { expenseService } from '../services/api';
+import api, { expenseService, configService } from '../services/api';
 import { 
   DollarSign, 
   ArrowLeft, 
@@ -19,6 +19,7 @@ const RegistroDespesa = () => {
   const [optimizing, setOptimizing] = useState(false);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -122,20 +123,30 @@ const RegistroDespesa = () => {
       }
     };
 
+    const fetchConfig = async () => {
+      try {
+        const res = await configService.get();
+        setExpensePhotoRequired(!!res.data?.expense_photo_required);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     fetchDespesa();
+    fetchConfig();
   }, [despesaId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file && !preview) {
+    if (expensePhotoRequired && !file && !preview) {
       alert('O comprovante é obrigatório.');
       return;
     }
-
     setLoading(true);
     try {
       const data = new FormData();
       data.append('valor', formData.valor);
+      data.append('forma_pagamento', formData.forma_pagamento);
       data.append('forma_pagamento', formData.forma_pagamento);
       data.append('descricao', formData.descricao);
       if (file) data.append('file', file);
@@ -217,7 +228,7 @@ const RegistroDespesa = () => {
             {/* File Upload UX */}
             <div className="space-y-4">
               <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
-                <Camera size={18} className="text-blue-500" /> Comprovante / Foto
+                <Camera size={18} className="text-blue-500" /> Comprovante / Foto {expensePhotoRequired ? '(obrigatório)' : '(opcional)'}
               </label>
               
               <div className="relative group h-full min-h-[200px]">
@@ -285,7 +296,7 @@ const RegistroDespesa = () => {
 
           <button 
             type="submit"
-            disabled={loading || optimizing || (!file && !preview)}
+            disabled={loading || optimizing}
             className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-5 rounded-2xl shadow-xl shadow-emerald-200 transition-all active:scale-[0.98] text-lg flex items-center justify-center gap-3"
           >
             {loading ? 'Processando...' : optimizing ? 'Otimizando...' : (

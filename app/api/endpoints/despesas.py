@@ -40,7 +40,10 @@ def _safe_remove_upload(stored_path: str) -> None:
     candidate = (Path.cwd() / normalized).resolve()
 
     if base in candidate.parents and candidate.is_file():
-        candidate.unlink()
+        try:
+            candidate.unlink()
+        except OSError:
+            pass
 
 
 # Dependency
@@ -58,7 +61,7 @@ def create_despesa_for_viagem(
     valor: float,
     forma_pagamento: str,
     descricao: str,
-    file: UploadFile = File(...),
+    file: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
     db_viagem = crud.get_viagem(db, viagem_id)
@@ -67,7 +70,11 @@ def create_despesa_for_viagem(
     if db_viagem.status != "em_andamento":
         raise HTTPException(status_code=400, detail="Despesas só podem ser lançadas em viagens em andamento")
 
-    file_path = _save_upload(file)
+    cfg = crud.get_app_config(db)
+    if cfg.expense_photo_required and file is None:
+        raise HTTPException(status_code=400, detail="Comprovante é obrigatório")
+
+    file_path = _save_upload(file) if file is not None else ""
     despesa = schemas.DespesaCreate(valor=valor, forma_pagamento=forma_pagamento, descricao=descricao)
     return crud.create_despesa(db=db, despesa=despesa, viagem_id=viagem_id, comprovante_url=file_path)
 
@@ -86,7 +93,7 @@ def update_despesa(
     valor: float,
     forma_pagamento: str,
     descricao: str,
-    file: UploadFile | None = File(None),
+    file: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     db_despesa = crud.get_despesa(db, despesa_id)
@@ -94,6 +101,10 @@ def update_despesa(
         raise HTTPException(status_code=404, detail="Despesa not found")
     if db_despesa.viagem and db_despesa.viagem.status in ["finalizada", "cancelada"]:
         raise HTTPException(status_code=400, detail="Não é permitido alterar despesas de uma viagem finalizada/cancelada")
+
+    cfg = crud.get_app_config(db)
+    if cfg.expense_photo_required and file is None and not db_despesa.comprovante_url:
+        raise HTTPException(status_code=400, detail="Comprovante é obrigatório")
 
     old_path = db_despesa.comprovante_url
     new_path = old_path

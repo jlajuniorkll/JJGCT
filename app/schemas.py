@@ -98,7 +98,7 @@ class DespesaUpdate(BaseModel):
 class Despesa(DespesaBase):
     id: int
     viagem_id: int
-    comprovante_url: str
+    comprovante_url: Optional[str] = None
     data_registro: datetime
 
     class Config:
@@ -156,6 +156,20 @@ class ViagemCreate(ViagemBase):
     transporte: Optional[TransporteViagemCreate] = None
 
 
+class ViagemUpdate(BaseModel):
+    cliente: Optional[str] = None
+    motivo: Optional[str] = None
+    local_partida: Optional[str] = None
+    local_chegada: Optional[str] = None
+    data_hora_prevista_saida: Optional[datetime] = None
+    data_hora_prevista_chegada: Optional[datetime] = None
+    meio_transporte: Optional[str] = None
+    obs_interna: Optional[str] = None
+    obs_geral: Optional[str] = None
+    participantes_ids: Optional[List[int]] = None
+    transporte: Optional[TransporteViagemCreate] = None
+
+
 class Viagem(ViagemBase):
     id: int
     status: str
@@ -176,3 +190,13 @@ class RelatorioViagem(BaseModel):
     distancia_percorrida_km: float
     total_horas_trabalhadas: str
     total_despesas: float
+
+
+class AppConfig(BaseModel):
+    expense_photo_required: bool
+    trip_edit_blocked_statuses: List[str]
+
+
+class AppConfigUpdate(BaseModel):
+    expense_photo_required: Optional[bool] = None
+    trip_edit_blocked_statuses: Optional[List[str]] = None

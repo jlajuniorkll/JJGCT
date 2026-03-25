@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from . import models, crud, schemas
 from .database import engine, SessionLocal
-from .api.endpoints import usuarios, veiculos, viagens, despesas, atividades, auth
+from .api.endpoints import usuarios, veiculos, viagens, despesas, atividades, auth, config
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -28,24 +28,25 @@ app.include_router(viagens.router, prefix="/api/viagens", tags=["viagens"])
 app.include_router(despesas.router, prefix="/api/despesas", tags=["despesas"])
 app.include_router(atividades.router, prefix="/api/atividades", tags=["atividades"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(config.router, prefix="/api/config", tags=["config"])
 
 
 @app.on_event("startup")
 def seed_admin():
     db = SessionLocal()
     try:
-        if crud.get_usuarios(db, limit=1):
-            return
-        crud.create_usuario(
-            db=db,
-            usuario=schemas.UsuarioCreate(
-                nome="Administrador",
-                email="admin@empresa.com",
-                senha="admin123",
-                tipousuario="admin",
-                tem_cnh=False,
-            ),
-        )
+        if not crud.get_usuarios(db, limit=1):
+            crud.create_usuario(
+                db=db,
+                usuario=schemas.UsuarioCreate(
+                    nome="Administrador",
+                    email="admin@empresa.com",
+                    senha="admin123",
+                    tipousuario="admin",
+                    tem_cnh=False,
+                ),
+            )
+        crud.get_app_config(db)
     finally:
         db.close()
 

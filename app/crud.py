@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import datetime, timezone
@@ -128,6 +130,32 @@ def delete_veiculo(db: Session, veiculo_id: int):
     db.commit()
     return db_veiculo
 
+
+def get_app_config(db: Session):
+    cfg = db.query(models.AppConfig).filter(models.AppConfig.id == 1).first()
+    if cfg:
+        return cfg
+
+    cfg = models.AppConfig(id=1)
+    db.add(cfg)
+    db.commit()
+    db.refresh(cfg)
+    return cfg
+
+
+def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
+    cfg = get_app_config(db)
+
+    if payload.expense_photo_required is not None:
+        cfg.expense_photo_required = payload.expense_photo_required
+
+    if payload.trip_edit_blocked_statuses is not None:
+        cfg.trip_edit_blocked_statuses = json.dumps(payload.trip_edit_blocked_statuses)
+
+    db.commit()
+    db.refresh(cfg)
+    return cfg
+
 # Funções CRUD para Viagem
 def get_viagem(db: Session, viagem_id: int):
     return db.query(models.Viagem).filter(models.Viagem.id == viagem_id).first()
@@ -177,11 +205,81 @@ def create_viagem(db: Session, viagem: schemas.ViagemCreate):
     db.refresh(db_viagem)
     return db_viagem
 
-def registrar_saida_real(db: Session, viagem_id: int):
+
+def update_viagem(db: Session, viagem_id: int, viagem: schemas.ViagemUpdate):
+    db_viagem = get_viagem(db, viagem_id)
+    if not db_viagem:
+        return None
+
+    if viagem.cliente is not None:
+        db_viagem.cliente = viagem.cliente
+    if viagem.motivo is not None:
+        db_viagem.motivo = viagem.motivo
+    if viagem.local_partida is not None:
+        db_viagem.local_partida = viagem.local_partida
+    if viagem.local_chegada is not None:
+        db_viagem.local_chegada = viagem.local_chegada
+    if viagem.data_hora_prevista_saida is not None:
+        db_viagem.data_hora_prevista_saida = viagem.data_hora_prevista_saida
+    if viagem.data_hora_prevista_chegada is not None:
+        db_viagem.data_hora_prevista_chegada = viagem.data_hora_prevista_chegada
+    if viagem.meio_transporte is not None:
+        db_viagem.meio_transporte = viagem.meio_transporte
+    if viagem.obs_interna is not None:
+        db_viagem.obs_interna = viagem.obs_interna
+    if viagem.obs_geral is not None:
+        db_viagem.obs_geral = viagem.obs_geral
+
+    if viagem.participantes_ids is not None:
+        if len(viagem.participantes_ids) == 0:
+            raise ValueError("A viagem deve ter pelo menos um participante.")
+        participantes = []
+        for usuario_id in viagem.participantes_ids:
+            usuario = get_usuario(db, usuario_id)
+            if not usuario:
+                raise ValueError(f"Usuário com ID {usuario_id} não encontrado.")
+            participantes.append(usuario)
+        db_viagem.participantes = participantes
+
+    effective_meio = db_viagem.meio_transporte
+    requires_transport = effective_meio in ["carro empresa", "carro próprio"]
+
+    if requires_transport:
+        if viagem.transporte:
+            if db_viagem.transporte is None:
+                db_viagem.transporte = models.TransporteViagem(**viagem.transporte.dict())
+            else:
+                if viagem.transporte.veiculo_id is not None:
+                    db_viagem.transporte.veiculo_id = viagem.transporte.veiculo_id
+                if viagem.transporte.motorista_id is not None:
+                    db_viagem.transporte.motorista_id = viagem.transporte.motorista_id
+                if viagem.transporte.km_saida is not None:
+                    db_viagem.transporte.km_saida = viagem.transporte.km_saida
+                if viagem.transporte.km_chegada is not None:
+                    db_viagem.transporte.km_chegada = viagem.transporte.km_chegada
+
+        if db_viagem.transporte is None:
+            raise ValueError("Informações de transporte são obrigatórias para este meio de transporte.")
+
+        if not all([db_viagem.transporte.veiculo_id, db_viagem.transporte.motorista_id]):
+            raise ValueError("Veículo e motorista são obrigatórios para este meio de transporte.")
+
+    else:
+        if db_viagem.transporte is not None:
+            db.delete(db_viagem.transporte)
+            db_viagem.transporte = None
+
+    db.commit()
+    db.refresh(db_viagem)
+    return db_viagem
+
+def registrar_saida_real(db: Session, viagem_id: int, km_saida: float = None):
     db_viagem = get_viagem(db, viagem_id)
     if db_viagem:
         db_viagem.data_hora_real_saida = _utcnow_naive()
         db_viagem.status = "em_andamento"
+        if km_saida is not None and db_viagem.transporte:
+            db_viagem.transporte.km_saida = km_saida
         db.commit()
         db.refresh(db_viagem)
     return db_viagem

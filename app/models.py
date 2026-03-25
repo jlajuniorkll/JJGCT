@@ -66,7 +66,7 @@ class Despesa(Base):
     valor = Column(Float)
     forma_pagamento = Column(String)
     descricao = Column(String)
-    comprovante_url = Column(String)
+    comprovante_url = Column(String, nullable=True)
     data_registro = Column(DateTime(timezone=True), server_default=func.now())
     viagem = relationship("Viagem", back_populates="despesas")
 
@@ -91,3 +91,10 @@ class Pausa(Base):
     fim = Column(DateTime, nullable=True)
     motivo = Column(String)
     atividade = relationship("Atividade", back_populates="pausas")
+
+
+class AppConfig(Base):
+    __tablename__ = "app_config"
+    id = Column(Integer, primary_key=True, index=True)
+    expense_photo_required = Column(Boolean, default=False)
+    trip_edit_blocked_statuses = Column(String, default='["em_andamento","finalizada","cancelada"]')
