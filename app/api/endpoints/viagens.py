@@ -46,7 +46,10 @@ def get_db():
 @router.post("/", response_model=schemas.Viagem)
 def create_viagem(viagem: schemas.ViagemCreate, x_user_id: int = Header(default=None), db: Session = Depends(get_db)):
     if not viagem.participantes_ids:
-        raise HTTPException(status_code=400, detail="A viagem deve ter pelo menos um participante.")
+        if x_user_id:
+            viagem = schemas.ViagemCreate(**{**viagem.dict(), "participantes_ids": [x_user_id]})
+        else:
+            raise HTTPException(status_code=400, detail="A viagem deve ter pelo menos um participante.")
     if viagem.meio_transporte in ["carro empresa", "carro próprio"]:
         if not viagem.transporte:
             raise HTTPException(status_code=400, detail="Informações de transporte são obrigatórias para este meio de transporte.")

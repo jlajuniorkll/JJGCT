@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { tripService, userService, vehicleService } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { 
   Plus, 
   Search, 
@@ -23,6 +24,7 @@ const Viagens = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
+  const { user } = useAuth();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -77,6 +79,9 @@ const Viagens = () => {
     e.preventDefault();
     try {
       const payload = { ...formData };
+      if (!payload.participantes_ids?.length && user?.id) {
+        payload.participantes_ids = [user.id];
+      }
       if (!['carro empresa', 'carro próprio'].includes(payload.meio_transporte)) {
         delete payload.transporte;
       } else {
@@ -268,7 +273,7 @@ const Viagens = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Partida</label>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Local Partida</label>
                       <input 
                         type="text" required
                         className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
@@ -277,7 +282,7 @@ const Viagens = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Chegada</label>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Local Chegada</label>
                       <input 
                         type="text" required
                         className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
