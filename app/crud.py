@@ -1,6 +1,7 @@
 import json
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from . import models, schemas
 from datetime import datetime, timezone
 
@@ -155,6 +156,12 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
     if payload.trip_activity_expense_allowed_statuses is not None:
         cfg.trip_activity_expense_allowed_statuses = json.dumps(payload.trip_activity_expense_allowed_statuses)
 
+    if payload.trips_show_all_admin is not None:
+        cfg.trips_show_all_admin = payload.trips_show_all_admin
+
+    if payload.trips_show_all_colaborador is not None:
+        cfg.trips_show_all_colaborador = payload.trips_show_all_colaborador
+
     db.commit()
     db.refresh(cfg)
     return cfg
@@ -164,7 +171,28 @@ def get_viagem(db: Session, viagem_id: int):
     return db.query(models.Viagem).filter(models.Viagem.id == viagem_id).first()
 
 def get_viagens(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Viagem).offset(skip).limit(limit).all()
+    return (
+        db.query(models.Viagem)
+        .order_by(models.Viagem.data_criacao.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def get_viagens_for_user(db: Session, user_id: int, skip: int = 0, limit: int = 100, order: str = "desc"):
+    q = db.query(models.Viagem).filter(
+        or_(
+            models.Viagem.responsavel_id == user_id,
+            models.Viagem.participantes.any(models.Usuario.id == user_id),
+            models.Viagem.transporte.has(models.TransporteViagem.motorista_id == user_id),
+        )
+    )
+    if order == "asc":
+        q = q.order_by(models.Viagem.data_criacao.asc())
+    else:
+        q = q.order_by(models.Viagem.data_criacao.desc())
+    return q.offset(skip).limit(limit).all()
 
 def create_viagem(db: Session, viagem: schemas.ViagemCreate):
     # Verificar se todos os participantes existem

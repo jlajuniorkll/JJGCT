@@ -222,9 +222,13 @@ class AppConfig(BaseModel):
     expense_photo_required: bool
     trip_edit_blocked_statuses: List[str]
     trip_activity_expense_allowed_statuses: List[str]
+    trips_show_all_admin: bool
+    trips_show_all_colaborador: bool
 
 
 class AppConfigUpdate(BaseModel):
     expense_photo_required: Optional[bool] = None
     trip_edit_blocked_statuses: Optional[List[str]] = None
     trip_activity_expense_allowed_statuses: Optional[List[str]] = None
+    trips_show_all_admin: Optional[bool] = None
+    trips_show_all_colaborador: Optional[bool] = None

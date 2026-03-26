@@ -45,6 +45,8 @@ def _to_schema(cfg) -> schemas.AppConfig:
         expense_photo_required=bool(cfg.expense_photo_required),
         trip_edit_blocked_statuses=[str(s) for s in statuses],
         trip_activity_expense_allowed_statuses=[str(s) for s in mutation_statuses],
+        trips_show_all_admin=bool(getattr(cfg, "trips_show_all_admin", True)),
+        trips_show_all_colaborador=bool(getattr(cfg, "trips_show_all_colaborador", True)),
     )
 
 

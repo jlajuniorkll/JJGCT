@@ -20,6 +20,8 @@ const Configuracoes = () => {
   const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
   const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
+  const [tripsShowAllAdmin, setTripsShowAllAdmin] = useState(true);
+  const [tripsShowAllColaborador, setTripsShowAllColaborador] = useState(true);
 
   const isAdmin = user?.tipousuario === 'admin';
 
@@ -39,6 +41,8 @@ const Configuracoes = () => {
       setActivityExpenseAllowedStatuses(
         Array.isArray(data.trip_activity_expense_allowed_statuses) ? data.trip_activity_expense_allowed_statuses : ['em_andamento'],
       );
+      setTripsShowAllAdmin(data.trips_show_all_admin !== false);
+      setTripsShowAllColaborador(data.trips_show_all_colaborador !== false);
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.detail || 'Erro ao carregar configurações');
@@ -80,6 +84,8 @@ const Configuracoes = () => {
         expense_photo_required: expensePhotoRequired,
         trip_edit_blocked_statuses: blockedStatuses,
         trip_activity_expense_allowed_statuses: activityExpenseAllowedStatuses,
+        trips_show_all_admin: tripsShowAllAdmin,
+        trips_show_all_colaborador: tripsShowAllColaborador,
       });
       alert('Configurações salvas');
     } catch (err) {
@@ -176,6 +182,38 @@ const Configuracoes = () => {
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Visibilidade de Viagens</h2>
+            <label className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer">
+              <div>
+                <p className="text-sm font-black text-gray-800">Todas as viagens (administrador)</p>
+                <p className="text-xs font-bold text-gray-500">
+                  Se desativado, admin vê apenas viagens em que é participante, motorista ou responsável.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={tripsShowAllAdmin}
+                onChange={(e) => setTripsShowAllAdmin(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer">
+              <div>
+                <p className="text-sm font-black text-gray-800">Todas as viagens (colaborador)</p>
+                <p className="text-xs font-bold text-gray-500">
+                  Se desativado, colaborador vê apenas viagens em que é participante, motorista ou responsável.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={tripsShowAllColaborador}
+                onChange={(e) => setTripsShowAllColaborador(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+              />
+            </label>
           </div>
         </div>
       )}

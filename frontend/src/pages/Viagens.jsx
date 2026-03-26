@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { tripService, userService, vehicleService } from '../services/api';
 import { 
   Plus, 
@@ -10,7 +10,8 @@ import {
   X,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ArrowUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -21,6 +22,7 @@ const Viagens = () => {
   const [showModal, setShowModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('desc');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -42,21 +44,21 @@ const Viagens = () => {
   const [availableUsers, setAvailableUsers] = useState([]);
   const [availableVehicles, setAvailableVehicles] = useState([]);
 
-  useEffect(() => {
-    fetchTrips();
-    fetchInitialData();
-  }, []);
-
-  const fetchTrips = async () => {
+  const fetchTrips = useCallback(async () => {
     try {
-      const response = await tripService.list();
+      const response = await tripService.list({ order: sortOrder });
       setTrips(response.data);
     } catch (err) {
       console.error('Error fetching trips:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortOrder]);
+
+  useEffect(() => {
+    fetchTrips();
+    fetchInitialData();
+  }, [fetchTrips]);
 
   const fetchInitialData = async () => {
     try {
@@ -109,6 +111,12 @@ const Viagens = () => {
     return matchesStatus && matchesSearch;
   });
 
+  const sortedTrips = [...filteredTrips].sort((a, b) => {
+    const da = new Date(a.data_criacao || a.data_hora_prevista_saida || 0).getTime();
+    const db = new Date(b.data_criacao || b.data_hora_prevista_saida || 0).getTime();
+    return sortOrder === 'asc' ? da - db : db - da;
+  });
+
   const statusColors = {
     planejada: 'bg-indigo-100 text-indigo-700',
     em_andamento: 'bg-orange-100 text-orange-700',
@@ -156,6 +164,14 @@ const Viagens = () => {
             <option value="finalizada">Finalizada</option>
             <option value="cancelada">Cancelada</option>
           </select>
+          <button
+            type="button"
+            onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none hover:bg-gray-100 font-bold text-gray-600 flex items-center gap-2"
+          >
+            <ArrowUpDown size={16} />
+            {sortOrder === 'desc' ? 'Recentes' : 'Antigas'}
+          </button>
         </div>
       </div>
 
@@ -163,13 +179,13 @@ const Viagens = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <p className="col-span-full text-center py-12 text-gray-500">Carregando viagens...</p>
-        ) : filteredTrips.length === 0 ? (
+        ) : sortedTrips.length === 0 ? (
           <div className="col-span-full bg-white p-12 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-center">
             <AlertCircle className="text-gray-400 mb-4" size={48} />
             <p className="text-gray-500 font-medium">Nenhuma viagem encontrada com os filtros atuais.</p>
           </div>
         ) : (
-          filteredTrips.map(trip => (
+          sortedTrips.map(trip => (
             <Link 
               key={trip.id} 
               to={`/viagens/${trip.id}`}

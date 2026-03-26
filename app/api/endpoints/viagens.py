@@ -60,8 +60,35 @@ def create_viagem(viagem: schemas.ViagemCreate, x_user_id: int = Header(default=
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/", response_model=List[schemas.Viagem])
-def read_viagens(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    viagens = crud.get_viagens(db, skip=skip, limit=limit)
+def read_viagens(
+    skip: int = 0,
+    limit: int = 100,
+    order: str = "desc",
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if order not in ["asc", "desc"]:
+        order = "desc"
+
+    cfg = crud.get_app_config(db)
+    user = crud.get_usuario(db, usuario_id=x_user_id) if x_user_id else None
+    show_all = True
+    if user:
+        if user.tipousuario == "admin":
+            show_all = bool(getattr(cfg, "trips_show_all_admin", True))
+        else:
+            show_all = bool(getattr(cfg, "trips_show_all_colaborador", True))
+
+    if show_all or not user:
+        viagens = (
+            db.query(models.Viagem)
+            .order_by(models.Viagem.data_criacao.asc() if order == "asc" else models.Viagem.data_criacao.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+    else:
+        viagens = crud.get_viagens_for_user(db, user_id=user.id, skip=skip, limit=limit, order=order)
     for v in viagens:
         _normalize_viagem(v)
     return viagens
