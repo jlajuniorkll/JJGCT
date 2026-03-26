@@ -136,8 +136,14 @@ def registrar_saida(
     if db_viagem.status != "planejada":
         raise HTTPException(status_code=400, detail="A saída só pode ser registrada para viagens planejadas")
 
-    if db_viagem.responsavel_id and x_user_id and db_viagem.responsavel_id != x_user_id:
-        raise HTTPException(status_code=403, detail="Apenas o responsável pode iniciar a viagem")
+    if x_user_id:
+        allowed = False
+        if db_viagem.responsavel_id and db_viagem.responsavel_id == x_user_id:
+            allowed = True
+        if db_viagem.transporte and db_viagem.transporte.motorista_id == x_user_id:
+            allowed = True
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Apenas o responsável ou motorista pode iniciar a viagem")
 
     if db_viagem.meio_transporte in ["carro empresa", "carro próprio"] and db_viagem.transporte:
         if motorista_id and db_viagem.transporte.motorista_id == motorista_id:

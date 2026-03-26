@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import timezone
+import json
 
 from ... import crud, models, schemas
 from ...database import SessionLocal
@@ -58,29 +59,105 @@ def create_atividade_for_viagem(
         raise HTTPException(status_code=404, detail="Viagem not found")
     if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
         raise HTTPException(status_code=403, detail="Apenas participantes podem registrar atividades")
+    cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Atividades não permitidas para este status de viagem")
     return _normalize_atividade(crud.create_atividade(db=db, atividade=atividade, viagem_id=viagem_id))
 
 @router.post("/{atividade_id}/iniciar", response_model=schemas.Atividade)
-def iniciar_atividade(atividade_id: int, db: Session = Depends(get_db)):
-    db_atividade = crud.iniciar_atividade(db, atividade_id=atividade_id)
+def iniciar_atividade(atividade_id: int, x_user_id: int = Header(default=None), db: Session = Depends(get_db)):
+    db_atividade = crud.get_atividade(db, atividade_id=atividade_id)
     if db_atividade is None:
         raise HTTPException(status_code=404, detail="Atividade not found")
-    return _normalize_atividade(db_atividade)
+    db_viagem = crud.get_viagem(db, db_atividade.viagem_id)
+    if not db_viagem:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+    if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
+        raise HTTPException(status_code=403, detail="Apenas participantes podem alterar atividades")
+    cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Atividades não permitidas para este status de viagem")
+    return _normalize_atividade(crud.iniciar_atividade(db, atividade_id=atividade_id))
 
 @router.post("/{atividade_id}/finalizar", response_model=schemas.Atividade)
-def finalizar_atividade(atividade_id: int, db: Session = Depends(get_db)):
-    db_atividade = crud.finalizar_atividade(db, atividade_id=atividade_id)
+def finalizar_atividade(atividade_id: int, x_user_id: int = Header(default=None), db: Session = Depends(get_db)):
+    db_atividade = crud.get_atividade(db, atividade_id=atividade_id)
     if db_atividade is None:
         raise HTTPException(status_code=404, detail="Atividade not found")
-    return _normalize_atividade(db_atividade)
+    db_viagem = crud.get_viagem(db, db_atividade.viagem_id)
+    if not db_viagem:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+    if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
+        raise HTTPException(status_code=403, detail="Apenas participantes podem alterar atividades")
+    cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Atividades não permitidas para este status de viagem")
+    return _normalize_atividade(crud.finalizar_atividade(db, atividade_id=atividade_id))
 
 @router.post("/{atividade_id}/pausar", response_model=schemas.Pausa)
-def pausar_atividade(atividade_id: int, pausa: schemas.PausaCreate, db: Session = Depends(get_db)):
+def pausar_atividade(
+    atividade_id: int,
+    pausa: schemas.PausaCreate,
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    db_atividade = crud.get_atividade(db, atividade_id=atividade_id)
+    if db_atividade is None:
+        raise HTTPException(status_code=404, detail="Atividade not found")
+    db_viagem = crud.get_viagem(db, db_atividade.viagem_id)
+    if not db_viagem:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+    if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
+        raise HTTPException(status_code=403, detail="Apenas participantes podem alterar atividades")
+    cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Atividades não permitidas para este status de viagem")
     return _normalize_pausa(crud.create_pausa(db=db, pausa=pausa, atividade_id=atividade_id))
 
 @router.post("/pausas/{pausa_id}/finalizar", response_model=schemas.Pausa)
-def finalizar_pausa(pausa_id: int, db: Session = Depends(get_db)):
-    db_pausa = crud.finalizar_pausa(db, pausa_id=pausa_id)
+def finalizar_pausa(pausa_id: int, x_user_id: int = Header(default=None), db: Session = Depends(get_db)):
+    db_pausa = db.query(models.Pausa).filter(models.Pausa.id == pausa_id).first()
     if db_pausa is None:
         raise HTTPException(status_code=404, detail="Pausa not found")
-    return _normalize_pausa(db_pausa)
+    db_atividade = crud.get_atividade(db, atividade_id=db_pausa.atividade_id)
+    if db_atividade is None:
+        raise HTTPException(status_code=404, detail="Atividade not found")
+    db_viagem = crud.get_viagem(db, db_atividade.viagem_id)
+    if not db_viagem:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+    if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
+        raise HTTPException(status_code=403, detail="Apenas participantes podem alterar atividades")
+    cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Atividades não permitidas para este status de viagem")
+    return _normalize_pausa(crud.finalizar_pausa(db, pausa_id=pausa_id))

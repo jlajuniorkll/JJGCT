@@ -221,8 +221,10 @@ class RelatorioViagem(BaseModel):
 class AppConfig(BaseModel):
     expense_photo_required: bool
     trip_edit_blocked_statuses: List[str]
+    trip_activity_expense_allowed_statuses: List[str]
 
 
 class AppConfigUpdate(BaseModel):
     expense_photo_required: Optional[bool] = None
     trip_edit_blocked_statuses: Optional[List[str]] = None
+    trip_activity_expense_allowed_statuses: Optional[List[str]] = None

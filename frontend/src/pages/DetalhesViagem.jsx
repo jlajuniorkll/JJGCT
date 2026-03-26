@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { tripService, expenseService, configService } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { 
   MapPin, 
   Calendar, 
@@ -24,9 +25,11 @@ import { ptBR } from 'date-fns/locale';
 const DetalhesViagem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
+  const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -49,6 +52,8 @@ const DetalhesViagem = () => {
         const res = await configService.get();
         const statuses = res.data?.trip_edit_blocked_statuses;
         if (Array.isArray(statuses)) setBlockedStatuses(statuses);
+        const allowed = res.data?.trip_activity_expense_allowed_statuses;
+        if (Array.isArray(allowed)) setActivityExpenseAllowedStatuses(allowed);
       } catch (err) {
         console.error(err);
       }
@@ -63,6 +68,11 @@ const DetalhesViagem = () => {
     trip.status === 'em_andamento' &&
     (trip.atividades || []).every((a) => a.status === 'finalizada');
   const canEdit = !blockedStatuses.includes(trip.status);
+  const canMutateActivitiesExpenses = activityExpenseAllowedStatuses.includes(trip.status);
+  const canRegisterDeparture = trip.status === 'planejada' && (
+    (user?.id && trip?.responsavel_id === user.id) ||
+    (user?.id && trip?.transporte?.motorista_id === user.id)
+  );
 
   const statusColors = {
     planejada: 'bg-indigo-100 text-indigo-700',
@@ -127,7 +137,12 @@ const DetalhesViagem = () => {
           {trip.status === 'planejada' && (
             <button 
               onClick={() => navigate(`/viagens/${trip.id}/saida`)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center gap-2"
+              disabled={!canRegisterDeparture}
+              className={`px-6 py-3 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center gap-2 ${
+                canRegisterDeparture
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
               <Navigation size={20} /> Registrar Saída
             </button>
@@ -186,7 +201,7 @@ const DetalhesViagem = () => {
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <Clock className="text-blue-600" size={20} /> Atividades
               </h2>
-              {trip.status === 'em_andamento' && (
+              {canMutateActivitiesExpenses && (
                 <Link to={`/viagens/${trip.id}/tempo`} className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:underline">
                   <Plus size={16} /> Nova Atividade
                 </Link>
@@ -210,7 +225,7 @@ const DetalhesViagem = () => {
                         <p className="text-xs text-gray-500">{atv.status}</p>
                       </div>
                     </div>
-                    {trip.status === 'em_andamento' && atv.status !== 'finalizada' && (
+                    {canMutateActivitiesExpenses && atv.status !== 'finalizada' && (
                       <Link to={`/viagens/${trip.id}/tempo`} className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
                         <ChevronRight size={20} />
                       </Link>
@@ -227,7 +242,7 @@ const DetalhesViagem = () => {
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <DollarSign className="text-emerald-600" size={20} /> Despesas
               </h2>
-              {trip.status === 'em_andamento' && (
+              {canMutateActivitiesExpenses && (
                 <Link to={`/viagens/${trip.id}/despesa`} className="text-emerald-600 font-bold text-sm flex items-center gap-1 hover:underline">
                   <Plus size={16} /> Adicionar Despesa
                 </Link>
@@ -259,7 +274,7 @@ const DetalhesViagem = () => {
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              disabled={trip.status !== 'em_andamento'}
+                              disabled={!canMutateActivitiesExpenses}
                               onClick={() => navigate(`/viagens/${trip.id}/despesa/${exp.id}`)}
                               className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors disabled:opacity-50"
                               aria-label="Editar despesa"
@@ -268,7 +283,7 @@ const DetalhesViagem = () => {
                             </button>
                             <button
                               type="button"
-                              disabled={trip.status !== 'em_andamento'}
+                              disabled={!canMutateActivitiesExpenses}
                               onClick={async () => {
                                 const ok = window.confirm('Excluir esta despesa? O anexo será removido.');
                                 if (!ok) return;

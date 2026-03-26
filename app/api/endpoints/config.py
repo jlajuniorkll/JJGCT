@@ -35,9 +35,16 @@ def _to_schema(cfg) -> schemas.AppConfig:
             statuses = []
     except json.JSONDecodeError:
         statuses = []
+    try:
+        mutation_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(mutation_statuses, list):
+            mutation_statuses = []
+    except json.JSONDecodeError:
+        mutation_statuses = []
     return schemas.AppConfig(
         expense_photo_required=bool(cfg.expense_photo_required),
         trip_edit_blocked_statuses=[str(s) for s in statuses],
+        trip_activity_expense_allowed_statuses=[str(s) for s in mutation_statuses],
     )
 
 

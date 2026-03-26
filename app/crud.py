@@ -152,6 +152,9 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
     if payload.trip_edit_blocked_statuses is not None:
         cfg.trip_edit_blocked_statuses = json.dumps(payload.trip_edit_blocked_statuses)
 
+    if payload.trip_activity_expense_allowed_statuses is not None:
+        cfg.trip_activity_expense_allowed_statuses = json.dumps(payload.trip_activity_expense_allowed_statuses)
+
     db.commit()
     db.refresh(cfg)
     return cfg

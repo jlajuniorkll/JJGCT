@@ -119,3 +119,4 @@ class AppConfig(Base):
     id = Column(Integer, primary_key=True, index=True)
     expense_photo_required = Column(Boolean, default=False)
     trip_edit_blocked_statuses = Column(String, default='["em_andamento","finalizada","cancelada"]')
+    trip_activity_expense_allowed_statuses = Column(String, default='["em_andamento"]')

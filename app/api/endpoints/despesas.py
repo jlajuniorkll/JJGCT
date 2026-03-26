@@ -4,6 +4,7 @@ from typing import List
 from pathlib import Path
 from uuid import uuid4
 import shutil
+import json
 
 from ... import crud, models, schemas
 from ...database import SessionLocal
@@ -72,12 +73,18 @@ def create_despesa_for_viagem(
     db_viagem = crud.get_viagem(db, viagem_id)
     if not db_viagem:
         raise HTTPException(status_code=404, detail="Viagem not found")
-    if db_viagem.status != "em_andamento":
-        raise HTTPException(status_code=400, detail="Despesas só podem ser lançadas em viagens em andamento")
     if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
         raise HTTPException(status_code=403, detail="Apenas participantes podem registrar despesas")
 
     cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Despesas não permitidas para este status de viagem")
     if cfg.expense_photo_required and file is None:
         raise HTTPException(status_code=400, detail="Comprovante é obrigatório")
 
@@ -119,8 +126,16 @@ def update_despesa(
     db_despesa = crud.get_despesa(db, despesa_id)
     if db_despesa is None:
         raise HTTPException(status_code=404, detail="Despesa not found")
-    if db_despesa.viagem and db_despesa.viagem.status in ["finalizada", "cancelada"]:
-        raise HTTPException(status_code=400, detail="Não é permitido alterar despesas de uma viagem finalizada/cancelada")
+    if db_despesa.viagem:
+        cfg = crud.get_app_config(db)
+        try:
+            allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+            if not isinstance(allowed_statuses, list):
+                allowed_statuses = []
+        except json.JSONDecodeError:
+            allowed_statuses = []
+        if db_despesa.viagem.status not in allowed_statuses:
+            raise HTTPException(status_code=400, detail="Alteração de despesas não permitida para este status de viagem")
     if x_user_id and x_user_id not in [u.id for u in db_despesa.viagem.participantes]:
         raise HTTPException(status_code=403, detail="Apenas participantes podem editar despesas")
 
@@ -169,8 +184,16 @@ def delete_despesa(despesa_id: int, x_user_id: int = Header(default=None), db: S
     db_despesa = crud.get_despesa(db, despesa_id)
     if db_despesa is None:
         raise HTTPException(status_code=404, detail="Despesa not found")
-    if db_despesa.viagem and db_despesa.viagem.status in ["finalizada", "cancelada"]:
-        raise HTTPException(status_code=400, detail="Não é permitido excluir despesas de uma viagem finalizada/cancelada")
+    if db_despesa.viagem:
+        cfg = crud.get_app_config(db)
+        try:
+            allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+            if not isinstance(allowed_statuses, list):
+                allowed_statuses = []
+        except json.JSONDecodeError:
+            allowed_statuses = []
+        if db_despesa.viagem.status not in allowed_statuses:
+            raise HTTPException(status_code=400, detail="Exclusão de despesas não permitida para este status de viagem")
     if x_user_id and x_user_id not in [u.id for u in db_despesa.viagem.participantes]:
         raise HTTPException(status_code=403, detail="Apenas participantes podem excluir despesas")
 
@@ -205,6 +228,15 @@ def replace_despesa_rateio(
         raise HTTPException(status_code=404, detail="Despesa not found")
     if x_user_id and x_user_id not in [u.id for u in db_despesa.viagem.participantes]:
         raise HTTPException(status_code=403, detail="Apenas participantes podem editar rateio")
+    cfg = crud.get_app_config(db)
+    try:
+        allowed_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
+        if not isinstance(allowed_statuses, list):
+            allowed_statuses = []
+    except json.JSONDecodeError:
+        allowed_statuses = []
+    if db_despesa.viagem.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Rateio não permitido para este status de viagem")
 
     try:
         result = crud.replace_despesa_rateios(db, despesa_id, payload)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { tripService, activityService } from '../services/api';
+import { tripService, activityService, configService } from '../services/api';
 import { 
   Play, 
   Pause, 
@@ -22,10 +22,13 @@ const ControleTempo = () => {
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
   const [newActivityDesc, setNewActivityDesc] = useState('');
+  const [tripStatus, setTripStatus] = useState(null);
+  const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
 
   const fetchTrip = useCallback(async () => {
     try {
       const response = await tripService.get(id);
+      setTripStatus(response.data.status);
       const active = response.data.atividades.find((a) => a.status !== 'finalizada');
       setActiveActivity(active || null);
     } catch (error) {
@@ -38,6 +41,19 @@ const ControleTempo = () => {
   useEffect(() => {
     fetchTrip();
   }, [fetchTrip]);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await configService.get();
+        const allowed = res.data?.trip_activity_expense_allowed_statuses;
+        if (Array.isArray(allowed)) setActivityExpenseAllowedStatuses(allowed);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   useEffect(() => {
     let timer;
@@ -116,6 +132,7 @@ const ControleTempo = () => {
   };
 
   if (loading) return <div className="p-8 text-center animate-pulse text-gray-500">Carregando controle de tempo...</div>;
+  const canMutate = tripStatus ? activityExpenseAllowedStatuses.includes(tripStatus) : false;
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-in py-8 px-4">
@@ -146,7 +163,7 @@ const ControleTempo = () => {
             />
             <button 
               onClick={handleCreateAndStart}
-              disabled={!newActivityDesc}
+              disabled={!canMutate || !newActivityDesc}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-5 rounded-2xl shadow-xl shadow-blue-200 transition-all active:scale-[0.98] text-lg flex items-center justify-center gap-2"
             >
               <Play size={20} fill="currentColor" /> Iniciar Agora
@@ -173,6 +190,7 @@ const ControleTempo = () => {
             {activeActivity.status === 'ativa' ? (
               <button 
                 onClick={() => setShowPauseModal(true)}
+                disabled={!canMutate}
                 className="col-span-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-100 flex flex-col items-center gap-2 transition-all active:scale-[0.95]"
               >
                 <Pause size={24} fill="currentColor" />
@@ -181,6 +199,7 @@ const ControleTempo = () => {
             ) : (
               <button 
                 onClick={handleResume}
+                disabled={!canMutate}
                 className="col-span-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-100 flex flex-col items-center gap-2 transition-all active:scale-[0.95]"
               >
                 <Play size={24} fill="currentColor" />
@@ -190,6 +209,7 @@ const ControleTempo = () => {
 
             <button 
               onClick={handleFinish}
+              disabled={!canMutate}
               className="col-span-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 rounded-2xl shadow-lg shadow-gray-200 flex flex-col items-center gap-2 transition-all active:scale-[0.95]"
             >
               <Square size={24} fill="currentColor" />

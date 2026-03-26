@@ -19,10 +19,15 @@ const Configuracoes = () => {
   const [saving, setSaving] = useState(false);
   const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
+  const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
 
   const isAdmin = user?.tipousuario === 'admin';
 
   const blockedSet = useMemo(() => new Set(blockedStatuses), [blockedStatuses]);
+  const activityExpenseAllowedSet = useMemo(
+    () => new Set(activityExpenseAllowedStatuses),
+    [activityExpenseAllowedStatuses],
+  );
 
   const fetchConfig = useCallback(async () => {
     setLoading(true);
@@ -31,6 +36,9 @@ const Configuracoes = () => {
       const data = res.data;
       setExpensePhotoRequired(!!data.expense_photo_required);
       setBlockedStatuses(Array.isArray(data.trip_edit_blocked_statuses) ? data.trip_edit_blocked_statuses : []);
+      setActivityExpenseAllowedStatuses(
+        Array.isArray(data.trip_activity_expense_allowed_statuses) ? data.trip_activity_expense_allowed_statuses : ['em_andamento'],
+      );
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.detail || 'Erro ao carregar configurações');
@@ -56,12 +64,22 @@ const Configuracoes = () => {
     });
   };
 
+  const toggleActivityExpenseStatus = (value) => {
+    setActivityExpenseAllowedStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return Array.from(next);
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       await configService.update({
         expense_photo_required: expensePhotoRequired,
         trip_edit_blocked_statuses: blockedStatuses,
+        trip_activity_expense_allowed_statuses: activityExpenseAllowedStatuses,
       });
       alert('Configurações salvas');
     } catch (err) {
@@ -129,6 +147,29 @@ const Configuracoes = () => {
                     type="checkbox"
                     checked={blockedSet.has(opt.value)}
                     onChange={() => toggleStatus(opt.value)}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-black text-gray-800">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Atividades e Despesas</h2>
+            <p className="text-sm font-medium text-gray-600">
+              Selecione os status em que o sistema deve liberar adicionar/editar/excluir atividades e despesas.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {STATUS_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={activityExpenseAllowedSet.has(opt.value)}
+                    onChange={() => toggleActivityExpenseStatus(opt.value)}
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm font-black text-gray-800">{opt.label}</span>
