@@ -313,7 +313,7 @@ const Viagens = () => {
                   <h3 className="font-bold text-blue-800 flex items-center gap-2">
                     <Car size={18} /> Dados do Transporte
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">Veículo</label>
                       <select 
@@ -347,18 +347,6 @@ const Viagens = () => {
                           <option key={u.id} value={u.id}>{u.nome}</option>
                         ))}
                       </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">KM Saída (informar no início da viagem)</label>
-                      <input 
-                        type="number"
-                        className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.transporte.km_saida}
-                        onChange={(e) => setFormData({
-                          ...formData, 
-                          transporte: { ...formData.transporte, km_saida: e.target.value }
-                        })}
-                      />
                     </div>
                   </div>
                 </div>
