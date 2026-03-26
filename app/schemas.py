@@ -83,6 +83,9 @@ class DespesaBase(BaseModel):
     valor: float
     forma_pagamento: str
     descricao: str
+    pago_por_id: Optional[int] = None
+    tipo_pagamento: Optional[str] = "INDIVIDUAL"
+    registrado_para_id: Optional[int] = None
 
 class DespesaCreate(DespesaBase):
     pass
@@ -92,6 +95,9 @@ class DespesaUpdate(BaseModel):
     valor: Optional[float] = None
     forma_pagamento: Optional[str] = None
     descricao: Optional[str] = None
+    pago_por_id: Optional[int] = None
+    tipo_pagamento: Optional[str] = None
+    registrado_para_id: Optional[int] = None
     comprovante_url: Optional[str] = None
 
 
@@ -100,6 +106,21 @@ class Despesa(DespesaBase):
     viagem_id: int
     comprovante_url: Optional[str] = None
     data_registro: datetime
+    rateios: List[DespesaRateio] = []
+
+    class Config:
+        from_attributes = True
+
+
+class DespesaRateioBase(BaseModel):
+    usuario_id: int
+    valor: float
+
+
+class DespesaRateio(DespesaRateioBase):
+    id: int
+    despesa_id: int
+    data_criacao: datetime
 
     class Config:
         from_attributes = True
@@ -150,6 +171,7 @@ class ViagemBase(BaseModel):
     meio_transporte: str
     obs_interna: Optional[str] = None
     obs_geral: Optional[str] = None
+    responsavel_id: Optional[int] = None
 
 class ViagemCreate(ViagemBase):
     participantes_ids: List[int]
@@ -166,6 +188,7 @@ class ViagemUpdate(BaseModel):
     meio_transporte: Optional[str] = None
     obs_interna: Optional[str] = None
     obs_geral: Optional[str] = None
+    responsavel_id: Optional[int] = None
     participantes_ids: Optional[List[int]] = None
     transporte: Optional[TransporteViagemCreate] = None
 

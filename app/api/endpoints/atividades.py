@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import timezone
@@ -47,7 +47,17 @@ def get_db():
         db.close()
 
 @router.post("/", response_model=schemas.Atividade)
-def create_atividade_for_viagem(viagem_id: int, atividade: schemas.AtividadeCreate, db: Session = Depends(get_db)):
+def create_atividade_for_viagem(
+    viagem_id: int,
+    atividade: schemas.AtividadeCreate,
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    db_viagem = crud.get_viagem(db, viagem_id)
+    if not db_viagem:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+    if x_user_id and x_user_id not in [u.id for u in db_viagem.participantes]:
+        raise HTTPException(status_code=403, detail="Apenas participantes podem registrar atividades")
     return _normalize_atividade(crud.create_atividade(db=db, atividade=atividade, viagem_id=viagem_id))
 
 @router.post("/{atividade_id}/iniciar", response_model=schemas.Atividade)

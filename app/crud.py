@@ -172,7 +172,21 @@ def create_viagem(db: Session, viagem: schemas.ViagemCreate):
             raise ValueError(f"Usuário com ID {usuario_id} não encontrado.")
         participantes.append(usuario)
 
+    responsavel_id = getattr(viagem, "responsavel_id", None)
+    if responsavel_id is None and viagem.transporte and viagem.transporte.motorista_id:
+        responsavel_id = viagem.transporte.motorista_id
+
+    if responsavel_id is None:
+        responsavel_id = viagem.participantes_ids[0] if viagem.participantes_ids else None
+
+    if responsavel_id is not None and responsavel_id not in viagem.participantes_ids:
+        usuario = get_usuario(db, responsavel_id)
+        if not usuario:
+            raise ValueError("Responsável inválido")
+        participantes.append(usuario)
+
     db_viagem = models.Viagem(
+        responsavel_id=responsavel_id,
         cliente=viagem.cliente,
         motivo=viagem.motivo,
         local_partida=viagem.local_partida,
@@ -196,6 +210,8 @@ def create_viagem(db: Session, viagem: schemas.ViagemCreate):
             motorista = get_usuario(db, viagem.transporte.motorista_id)
             if not motorista:
                 raise ValueError(f"Motorista com ID {viagem.transporte.motorista_id} não encontrado.")
+            if motorista.id not in {u.id for u in participantes}:
+                participantes.append(motorista)
 
         db_transporte = models.TransporteViagem(**viagem.transporte.dict())
         db_viagem.transporte = db_transporte
@@ -230,6 +246,12 @@ def update_viagem(db: Session, viagem_id: int, viagem: schemas.ViagemUpdate):
     if viagem.obs_geral is not None:
         db_viagem.obs_geral = viagem.obs_geral
 
+    if viagem.responsavel_id is not None:
+        resp = get_usuario(db, viagem.responsavel_id)
+        if not resp:
+            raise ValueError("Responsável inválido")
+        db_viagem.responsavel_id = viagem.responsavel_id
+
     if viagem.participantes_ids is not None:
         if len(viagem.participantes_ids) == 0:
             raise ValueError("A viagem deve ter pelo menos um participante.")
@@ -240,6 +262,14 @@ def update_viagem(db: Session, viagem_id: int, viagem: schemas.ViagemUpdate):
                 raise ValueError(f"Usuário com ID {usuario_id} não encontrado.")
             participantes.append(usuario)
         db_viagem.participantes = participantes
+
+    if db_viagem.responsavel_id is not None:
+        participant_ids = {u.id for u in db_viagem.participantes}
+        if db_viagem.responsavel_id not in participant_ids:
+            resp = get_usuario(db, db_viagem.responsavel_id)
+            if not resp:
+                raise ValueError("Responsável inválido")
+            db_viagem.participantes.append(resp)
 
     effective_meio = db_viagem.meio_transporte
     requires_transport = effective_meio in ["carro empresa", "carro próprio"]
@@ -263,6 +293,13 @@ def update_viagem(db: Session, viagem_id: int, viagem: schemas.ViagemUpdate):
 
         if not all([db_viagem.transporte.veiculo_id, db_viagem.transporte.motorista_id]):
             raise ValueError("Veículo e motorista são obrigatórios para este meio de transporte.")
+
+        participant_ids = {u.id for u in db_viagem.participantes}
+        if db_viagem.transporte.motorista_id not in participant_ids:
+            motorista = get_usuario(db, db_viagem.transporte.motorista_id)
+            if not motorista:
+                raise ValueError("Motorista inválido")
+            db_viagem.participantes.append(motorista)
 
     else:
         if db_viagem.transporte is not None:
@@ -333,6 +370,15 @@ def update_despesa(db: Session, despesa_id: int, despesa: schemas.DespesaUpdate)
     if despesa.descricao is not None:
         db_despesa.descricao = despesa.descricao
 
+    if despesa.pago_por_id is not None:
+        db_despesa.pago_por_id = despesa.pago_por_id
+
+    if despesa.tipo_pagamento is not None:
+        db_despesa.tipo_pagamento = despesa.tipo_pagamento
+
+    if despesa.registrado_para_id is not None:
+        db_despesa.registrado_para_id = despesa.registrado_para_id
+
     if despesa.comprovante_url is not None:
         db_despesa.comprovante_url = despesa.comprovante_url
 
@@ -349,6 +395,43 @@ def delete_despesa(db: Session, despesa_id: int):
     db.delete(db_despesa)
     db.commit()
     return db_despesa
+
+
+def get_despesa_rateios(db: Session, despesa_id: int):
+    return (
+        db.query(models.DespesaRateio)
+        .filter(models.DespesaRateio.despesa_id == despesa_id)
+        .all()
+    )
+
+
+def replace_despesa_rateios(db: Session, despesa_id: int, rateios: list[schemas.DespesaRateioBase]):
+    db_despesa = get_despesa(db, despesa_id)
+    if not db_despesa:
+        return None
+
+    seen = set()
+    total = 0.0
+    for r in rateios:
+        if r.usuario_id in seen:
+            raise ValueError("Usuário duplicado no rateio")
+        seen.add(r.usuario_id)
+        if r.valor < 0:
+            raise ValueError("Valor de rateio inválido")
+        total += float(r.valor)
+
+    if db_despesa.tipo_pagamento == "COMPARTILHADO":
+        if abs(total - float(db_despesa.valor)) > 0.01:
+            raise ValueError("Somatório do rateio deve ser igual ao valor total")
+        if len(rateios) < 2:
+            raise ValueError("Despesa compartilhada deve ter rateio para pelo menos 2 participantes")
+
+    db.query(models.DespesaRateio).filter(models.DespesaRateio.despesa_id == despesa_id).delete()
+    for r in rateios:
+        db.add(models.DespesaRateio(despesa_id=despesa_id, usuario_id=r.usuario_id, valor=r.valor))
+
+    db.commit()
+    return get_despesa_rateios(db, despesa_id)
 
 # Funções CRUD para Atividade
 def get_atividade(db: Session, atividade_id: int):

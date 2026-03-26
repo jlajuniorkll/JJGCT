@@ -29,6 +29,7 @@ class Veiculo(Base):
 class Viagem(Base):
     __tablename__ = "viagens"
     id = Column(Integer, primary_key=True, index=True)
+    responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     cliente = Column(String)
     motivo = Column(String)
     local_partida = Column(String)
@@ -43,6 +44,7 @@ class Viagem(Base):
     obs_geral = Column(String, nullable=True)
     data_criacao = Column(DateTime(timezone=True), server_default=func.now())
     participantes = relationship("Usuario", secondary=viagem_usuarios, back_populates="viagens")
+    responsavel = relationship("Usuario", foreign_keys=[responsavel_id])
     transporte = relationship("TransporteViagem", back_populates="viagem", uselist=False)
     despesas = relationship("Despesa", back_populates="viagem")
     atividades = relationship("Atividade", back_populates="viagem")
@@ -66,9 +68,26 @@ class Despesa(Base):
     valor = Column(Float)
     forma_pagamento = Column(String)
     descricao = Column(String)
+    pago_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    tipo_pagamento = Column(String, default="INDIVIDUAL")
+    registrado_para_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     comprovante_url = Column(String, nullable=True)
     data_registro = Column(DateTime(timezone=True), server_default=func.now())
     viagem = relationship("Viagem", back_populates="despesas")
+    pago_por = relationship("Usuario", foreign_keys=[pago_por_id])
+    registrado_para = relationship("Usuario", foreign_keys=[registrado_para_id])
+    rateios = relationship("DespesaRateio", back_populates="despesa")
+
+
+class DespesaRateio(Base):
+    __tablename__ = "despesa_rateio"
+    id = Column(Integer, primary_key=True, index=True)
+    despesa_id = Column(Integer, ForeignKey("despesas.id"))
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"))
+    valor = Column(Float)
+    data_criacao = Column(DateTime(timezone=True), server_default=func.now())
+    despesa = relationship("Despesa", back_populates="rateios")
+    usuario = relationship("Usuario")
 
 class Atividade(Base):
     __tablename__ = "atividades"

@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import timedelta, timezone
@@ -44,7 +44,7 @@ def get_db():
         db.close()
 
 @router.post("/", response_model=schemas.Viagem)
-def create_viagem(viagem: schemas.ViagemCreate, db: Session = Depends(get_db)):
+def create_viagem(viagem: schemas.ViagemCreate, x_user_id: int = Header(default=None), db: Session = Depends(get_db)):
     if not viagem.participantes_ids:
         raise HTTPException(status_code=400, detail="A viagem deve ter pelo menos um participante.")
     if viagem.meio_transporte in ["carro empresa", "carro próprio"]:
@@ -52,6 +52,8 @@ def create_viagem(viagem: schemas.ViagemCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Informações de transporte são obrigatórias para este meio de transporte.")
         if not all([viagem.transporte.veiculo_id, viagem.transporte.motorista_id]):
             raise HTTPException(status_code=400, detail="Veículo e motorista são obrigatórios para este meio de transporte.")
+    if viagem.responsavel_id is None and x_user_id:
+        viagem = schemas.ViagemCreate(**{**viagem.dict(), "responsavel_id": x_user_id})
     try:
         return crud.create_viagem(db=db, viagem=viagem)
     except ValueError as e:
@@ -73,7 +75,12 @@ def read_viagem(viagem_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{viagem_id}", response_model=schemas.Viagem)
-def update_viagem(viagem_id: int, payload: schemas.ViagemUpdate, db: Session = Depends(get_db)):
+def update_viagem(
+    viagem_id: int,
+    payload: schemas.ViagemUpdate,
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
     db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
@@ -88,6 +95,9 @@ def update_viagem(viagem_id: int, payload: schemas.ViagemUpdate, db: Session = D
 
     if db_viagem.status in blocked:
         raise HTTPException(status_code=400, detail="Edição não permitida para este status de viagem")
+
+    if db_viagem.responsavel_id and x_user_id and db_viagem.responsavel_id != x_user_id:
+        raise HTTPException(status_code=403, detail="Apenas o responsável pode editar a viagem")
 
     try:
         updated = crud.update_viagem(db, viagem_id=viagem_id, viagem=payload)
@@ -111,7 +121,13 @@ def cancelar_viagem(viagem_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{viagem_id}/registrar-saida", response_model=schemas.Viagem)
-def registrar_saida(viagem_id: int, km_saida: float = None, motorista_id: int = None, db: Session = Depends(get_db)):
+def registrar_saida(
+    viagem_id: int,
+    km_saida: float = None,
+    motorista_id: int = None,
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
     db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
@@ -119,6 +135,9 @@ def registrar_saida(viagem_id: int, km_saida: float = None, motorista_id: int = 
         raise HTTPException(status_code=400, detail="Viagem cancelada")
     if db_viagem.status != "planejada":
         raise HTTPException(status_code=400, detail="A saída só pode ser registrada para viagens planejadas")
+
+    if db_viagem.responsavel_id and x_user_id and db_viagem.responsavel_id != x_user_id:
+        raise HTTPException(status_code=403, detail="Apenas o responsável pode iniciar a viagem")
 
     if db_viagem.meio_transporte in ["carro empresa", "carro próprio"] and db_viagem.transporte:
         if motorista_id and db_viagem.transporte.motorista_id == motorista_id:
