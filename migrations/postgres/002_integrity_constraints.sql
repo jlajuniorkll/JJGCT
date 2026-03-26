@@ -8,7 +8,7 @@ BEGIN
       ADD CONSTRAINT fk_viagens_responsavel_participante
       FOREIGN KEY (id, responsavel_id)
       REFERENCES viagem_usuarios(viagem_id, usuario_id)
-      DEFERRABLE INITIALLY IMMEDIATE;
+      DEFERRABLE INITIALLY DEFERRED;
   END IF;
 END $$;
 
@@ -22,7 +22,7 @@ BEGIN
       ADD CONSTRAINT fk_transporte_motorista_participante
       FOREIGN KEY (viagem_id, motorista_id)
       REFERENCES viagem_usuarios(viagem_id, usuario_id)
-      DEFERRABLE INITIALLY IMMEDIATE;
+      DEFERRABLE INITIALLY DEFERRED;
   END IF;
 END $$;
 
@@ -68,4 +68,3 @@ BEGIN
       EXECUTE PROCEDURE despesa_rateio_check_sum();
   END IF;
 END $$;
-
