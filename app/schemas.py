@@ -101,17 +101,6 @@ class DespesaUpdate(BaseModel):
     comprovante_url: Optional[str] = None
 
 
-class Despesa(DespesaBase):
-    id: int
-    viagem_id: int
-    comprovante_url: Optional[str] = None
-    data_registro: datetime
-    rateios: List[DespesaRateio] = []
-
-    class Config:
-        from_attributes = True
-
-
 class DespesaRateioBase(BaseModel):
     usuario_id: int
     valor: float
@@ -121,6 +110,17 @@ class DespesaRateio(DespesaRateioBase):
     id: int
     despesa_id: int
     data_criacao: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class Despesa(DespesaBase):
+    id: int
+    viagem_id: int
+    comprovante_url: Optional[str] = None
+    data_registro: datetime
+    rateios: List[DespesaRateio] = []
 
     class Config:
         from_attributes = True
