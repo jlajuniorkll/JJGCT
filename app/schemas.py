@@ -83,6 +83,7 @@ class DespesaBase(BaseModel):
     valor: float
     forma_pagamento: str
     descricao: str
+    criado_por_id: Optional[int] = None
     pago_por_id: Optional[int] = None
     tipo_pagamento: Optional[str] = "INDIVIDUAL"
     registrado_para_id: Optional[int] = None
@@ -95,6 +96,7 @@ class DespesaUpdate(BaseModel):
     valor: Optional[float] = None
     forma_pagamento: Optional[str] = None
     descricao: Optional[str] = None
+    criado_por_id: Optional[int] = None
     pago_por_id: Optional[int] = None
     tipo_pagamento: Optional[str] = None
     registrado_para_id: Optional[int] = None
@@ -121,6 +123,7 @@ class Despesa(DespesaBase):
     comprovante_url: Optional[str] = None
     data_registro: datetime
     rateios: List[DespesaRateio] = []
+    criado_por: Optional[Usuario] = None
 
     class Config:
         from_attributes = True

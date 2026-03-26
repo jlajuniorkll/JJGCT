@@ -90,6 +90,7 @@ def create_despesa_for_viagem(
         valor=valor,
         forma_pagamento=forma_pagamento,
         descricao=descricao,
+        criado_por_id=x_user_id,
         pago_por_id=pago_por_id,
         tipo_pagamento=tipo_pagamento or "INDIVIDUAL",
         registrado_para_id=registrado_para_id,
@@ -143,6 +144,7 @@ def update_despesa(
                 valor=valor,
                 forma_pagamento=forma_pagamento,
                 descricao=descricao,
+                criado_por_id=db_despesa.criado_por_id or x_user_id,
                 comprovante_url=new_path,
             ),
         )

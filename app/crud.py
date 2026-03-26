@@ -370,6 +370,9 @@ def update_despesa(db: Session, despesa_id: int, despesa: schemas.DespesaUpdate)
     if despesa.descricao is not None:
         db_despesa.descricao = despesa.descricao
 
+    if despesa.criado_por_id is not None and db_despesa.criado_por_id is None:
+        db_despesa.criado_por_id = despesa.criado_por_id
+
     if despesa.pago_por_id is not None:
         db_despesa.pago_por_id = despesa.pago_por_id
 

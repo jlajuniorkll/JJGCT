@@ -242,6 +242,7 @@ const DetalhesViagem = () => {
                   <thead className="bg-gray-50 text-gray-400 font-bold uppercase text-[10px] tracking-widest">
                     <tr>
                       <th className="px-6 py-4">Descrição</th>
+                      <th className="px-6 py-4">Registrado por</th>
                       <th className="px-6 py-4 text-right">Valor</th>
                       <th className="px-6 py-4 text-right">Ações</th>
                     </tr>
@@ -250,6 +251,7 @@ const DetalhesViagem = () => {
                     {trip.despesas.map(exp => (
                       <tr key={exp.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 font-medium text-gray-700">{exp.descricao}</td>
+                        <td className="px-6 py-4 text-gray-600 font-medium">{exp.criado_por?.nome || '--'}</td>
                         <td className="px-6 py-4 text-right font-bold text-gray-800">
                           R$ {exp.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
