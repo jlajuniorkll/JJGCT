@@ -231,9 +231,9 @@ const RegistroDespesa = () => {
                 <Camera size={18} className="text-blue-500" /> Comprovante / Foto {expensePhotoRequired ? '(obrigatório)' : '(opcional)'}
               </label>
               
-              <div className="relative group h-full min-h-[200px]">
+              <div className="relative group h-full min-h-[260px]">
                 {!preview ? (
-                  <div className="space-y-3 h-full">
+                  <div className="flex flex-col gap-3 h-full">
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -257,7 +257,7 @@ const RegistroDespesa = () => {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={optimizing}
-                      className="flex flex-col items-center justify-center w-full h-full border-4 border-dashed border-gray-100 rounded-3xl hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer group disabled:opacity-50"
+                      className="flex flex-col items-center justify-center w-full flex-1 min-h-[200px] border-4 border-dashed border-gray-100 rounded-3xl hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer group disabled:opacity-50"
                     >
                       <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 mb-3 group-hover:scale-110 transition-transform">
                         <Upload size={32} />

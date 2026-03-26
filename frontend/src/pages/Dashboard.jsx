@@ -5,9 +5,6 @@ import {
   Briefcase, 
   CheckCircle, 
   Clock, 
-  TrendingUp,
-  Users,
-  Car,
   MapPin,
   Calendar,
   ChevronRight
@@ -49,12 +46,14 @@ const Dashboard = () => {
 
   const stats = {
     total: trips.length,
-    active: trips.filter(t => t.status === 'em_andamento').length,
-    completed: trips.filter(t => t.status === 'finalizada').length,
-    planned: trips.filter(t => t.status === 'planejada').length,
+    active: trips.filter(t => String(t.status || '').toLowerCase() === 'em_andamento').length,
+    completed: trips.filter(t => String(t.status || '').toLowerCase() === 'finalizada').length,
+    planned: trips.filter(t => String(t.status || '').toLowerCase() === 'planejada').length,
   };
 
-  const activeTrips = trips.filter(t => t.status === 'em_andamento').slice(0, 5);
+  const activeTrips = trips
+    .filter(t => String(t.status || '').toLowerCase() === 'em_andamento')
+    .slice(0, 5);
 
   if (loading) return <div className="animate-pulse flex items-center justify-center h-full">Carregando...</div>;
 
@@ -80,9 +79,9 @@ const Dashboard = () => {
         <StatCard title="Planejadas" value={stats.planned} icon={Calendar} color="bg-indigo-500 shadow-indigo-200" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         {/* Active Trips Section */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-800">Viagens em Andamento</h2>
             <Link to="/viagens" className="text-sm font-bold text-blue-600 hover:underline">Ver todas</Link>
@@ -126,39 +125,6 @@ const Dashboard = () => {
                 </Link>
               ))
             )}
-          </div>
-        </div>
-
-        {/* Quick Actions / Activity Feed */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold text-gray-800">Ações Rápidas</h2>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-            <Link 
-              to="/admin/usuarios"
-              className="w-full flex items-center gap-3 p-4 rounded-xl hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors border border-transparent hover:border-blue-100 font-medium"
-            >
-              <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-blue-100">
-                <Users size={20} />
-              </div>
-              Gerenciar Usuários
-            </Link>
-            <Link 
-              to="/admin/veiculos"
-              className="w-full flex items-center gap-3 p-4 rounded-xl hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors border border-transparent hover:border-blue-100 font-medium"
-            >
-              <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-blue-100">
-                <Car size={20} />
-              </div>
-              Frota de Veículos
-            </Link>
-            <button
-              className="w-full flex items-center gap-3 p-4 rounded-xl hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition-colors border border-transparent hover:border-blue-100 font-medium"
-            >
-              <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-blue-100">
-                <TrendingUp size={20} />
-              </div>
-              Relatórios Mensais
-            </button>
           </div>
         </div>
       </div>
