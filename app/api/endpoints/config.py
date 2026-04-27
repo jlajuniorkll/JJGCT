@@ -36,6 +36,18 @@ def _to_schema(cfg) -> schemas.AppConfig:
     except json.JSONDecodeError:
         statuses = []
     try:
+        expense_desc = json.loads(getattr(cfg, "expense_description_options", None) or "[]")
+        if not isinstance(expense_desc, list):
+            expense_desc = []
+    except json.JSONDecodeError:
+        expense_desc = []
+    try:
+        act_statuses = json.loads(getattr(cfg, "activity_edit_delete_allowed_statuses", None) or "[]")
+        if not isinstance(act_statuses, list):
+            act_statuses = []
+    except json.JSONDecodeError:
+        act_statuses = []
+    try:
         mutation_statuses = json.loads(cfg.trip_activity_expense_allowed_statuses or "[]")
         if not isinstance(mutation_statuses, list):
             mutation_statuses = []
@@ -43,6 +55,8 @@ def _to_schema(cfg) -> schemas.AppConfig:
         mutation_statuses = []
     return schemas.AppConfig(
         expense_photo_required=bool(cfg.expense_photo_required),
+        expense_description_options=[str(s) for s in expense_desc],
+        activity_edit_delete_allowed_statuses=[str(s) for s in act_statuses],
         trip_edit_blocked_statuses=[str(s) for s in statuses],
         trip_activity_expense_allowed_statuses=[str(s) for s in mutation_statuses],
         trips_show_all_admin=bool(getattr(cfg, "trips_show_all_admin", True)),

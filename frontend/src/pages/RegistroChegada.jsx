@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tripService } from '../services/api';
-import { Navigation, ArrowLeft, Clock, MapPin, CheckCircle, AlertCircle, Car } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, AlertCircle, Car, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -40,7 +40,7 @@ const RegistroChegada = () => {
       await tripService.registerArrival(id, km);
       navigate(`/viagens/${id}`);
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao registrar chegada');
+      alert(err.response?.data?.detail || 'Erro ao registrar retorno');
     }
   };
 
@@ -55,7 +55,7 @@ const RegistroChegada = () => {
         <button onClick={() => navigate(`/viagens/${id}`)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
           <ArrowLeft size={24} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-800">Check-in de Chegada</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Check-in de Retorno</h1>
       </div>
 
       <div className="bg-white rounded-3xl shadow-xl shadow-emerald-100 border border-gray-100 overflow-hidden flex flex-col">
@@ -69,11 +69,23 @@ const RegistroChegada = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
-                <MapPin size={20} />
+                <Users size={20} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chegando em</p>
-                <p className="text-sm font-bold text-gray-800 truncate">{trip.local_chegada}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Clientes</p>
+                <p className="text-sm font-bold text-gray-800 truncate">{(trip.clientes || []).join(', ') || '--'}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                <Clock size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Retorno Previsto</p>
+                <p className="text-sm font-bold text-gray-800 truncate">
+                  {trip.data_hora_prevista_retorno ? format(new Date(trip.data_hora_prevista_retorno), "dd/MM/yyyy HH:mm") : '--'}
+                </p>
               </div>
             </div>
 

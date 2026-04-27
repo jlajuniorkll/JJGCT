@@ -1,7 +1,7 @@
 import json
 
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from . import models, schemas
 from datetime import datetime, timezone
 
@@ -150,6 +150,12 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
     if payload.expense_photo_required is not None:
         cfg.expense_photo_required = payload.expense_photo_required
 
+    if payload.expense_description_options is not None:
+        cfg.expense_description_options = json.dumps(payload.expense_description_options)
+
+    if payload.activity_edit_delete_allowed_statuses is not None:
+        cfg.activity_edit_delete_allowed_statuses = json.dumps(payload.activity_edit_delete_allowed_statuses)
+
     if payload.trip_edit_blocked_statuses is not None:
         cfg.trip_edit_blocked_statuses = json.dumps(payload.trip_edit_blocked_statuses)
 
@@ -165,6 +171,30 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
     db.commit()
     db.refresh(cfg)
     return cfg
+
+
+def update_atividade(db: Session, atividade_id: int, payload: schemas.AtividadeUpdate):
+    db_atividade = get_atividade(db, atividade_id=atividade_id)
+    if not db_atividade:
+        return None
+
+    if payload.descricao is not None:
+        db_atividade.descricao = payload.descricao
+
+    db.commit()
+    db.refresh(db_atividade)
+    return db_atividade
+
+
+def delete_atividade(db: Session, atividade_id: int):
+    db_atividade = get_atividade(db, atividade_id=atividade_id)
+    if not db_atividade:
+        return None
+
+    db.query(models.Pausa).filter(models.Pausa.atividade_id == atividade_id).delete()
+    db.delete(db_atividade)
+    db.commit()
+    return db_atividade
 
 # Funções CRUD para Viagem
 def get_viagem(db: Session, viagem_id: int):
@@ -195,6 +225,10 @@ def get_viagens_for_user(db: Session, user_id: int, skip: int = 0, limit: int = 
     return q.offset(skip).limit(limit).all()
 
 def create_viagem(db: Session, viagem: schemas.ViagemCreate):
+    clientes = [str(c).strip() for c in (viagem.clientes or []) if str(c).strip()]
+    if not clientes:
+        raise ValueError("A viagem deve ter pelo menos um cliente.")
+
     # Verificar se todos os participantes existem
     participantes = []
     for usuario_id in viagem.participantes_ids:
@@ -218,17 +252,15 @@ def create_viagem(db: Session, viagem: schemas.ViagemCreate):
 
     db_viagem = models.Viagem(
         responsavel_id=responsavel_id,
-        cliente=viagem.cliente,
         motivo=viagem.motivo,
-        local_partida=viagem.local_partida,
-        local_chegada=viagem.local_chegada,
         data_hora_prevista_saida=viagem.data_hora_prevista_saida,
-        data_hora_prevista_chegada=viagem.data_hora_prevista_chegada,
+        data_hora_prevista_retorno=viagem.data_hora_prevista_retorno,
         meio_transporte=viagem.meio_transporte,
         obs_interna=viagem.obs_interna,
         obs_geral=viagem.obs_geral,
         participantes=participantes
     )
+    db_viagem.clientes_itens = [models.ViagemCliente(nome=nome) for nome in clientes]
     
     if viagem.transporte:
         # Verificar se veículo e motorista existem
@@ -258,18 +290,17 @@ def update_viagem(db: Session, viagem_id: int, viagem: schemas.ViagemUpdate):
     if not db_viagem:
         return None
 
-    if viagem.cliente is not None:
-        db_viagem.cliente = viagem.cliente
     if viagem.motivo is not None:
         db_viagem.motivo = viagem.motivo
-    if viagem.local_partida is not None:
-        db_viagem.local_partida = viagem.local_partida
-    if viagem.local_chegada is not None:
-        db_viagem.local_chegada = viagem.local_chegada
+    if viagem.clientes is not None:
+        clientes = [str(c).strip() for c in (viagem.clientes or []) if str(c).strip()]
+        if not clientes:
+            raise ValueError("A viagem deve ter pelo menos um cliente.")
+        db_viagem.clientes_itens = [models.ViagemCliente(nome=nome) for nome in clientes]
     if viagem.data_hora_prevista_saida is not None:
         db_viagem.data_hora_prevista_saida = viagem.data_hora_prevista_saida
-    if viagem.data_hora_prevista_chegada is not None:
-        db_viagem.data_hora_prevista_chegada = viagem.data_hora_prevista_chegada
+    if viagem.data_hora_prevista_retorno is not None:
+        db_viagem.data_hora_prevista_retorno = viagem.data_hora_prevista_retorno
     if viagem.meio_transporte is not None:
         db_viagem.meio_transporte = viagem.meio_transporte
     if viagem.obs_interna is not None:
@@ -472,7 +503,11 @@ def get_atividade(db: Session, atividade_id: int):
     return db.query(models.Atividade).filter(models.Atividade.id == atividade_id).first()
 
 def create_atividade(db: Session, atividade: schemas.AtividadeCreate, viagem_id: int):
-    db_atividade = models.Atividade(**atividade.dict(), viagem_id=viagem_id)
+    max_ordem = db.query(func.max(models.Atividade.ordem)).filter(models.Atividade.viagem_id == viagem_id).scalar()
+    if max_ordem is None:
+        max_ordem = db.query(models.Atividade).filter(models.Atividade.viagem_id == viagem_id).count()
+    next_ordem = int(max_ordem) + 1
+    db_atividade = models.Atividade(**atividade.dict(), viagem_id=viagem_id, ordem=next_ordem)
     db.add(db_atividade)
     db.commit()
     db.refresh(db_atividade)
@@ -517,3 +552,35 @@ def finalizar_pausa(db: Session, pausa_id: int):
         db.commit()
         db.refresh(db_pausa)
     return db_pausa
+
+
+def reorder_atividades(db: Session, viagem_id: int, atividade_ids: list[int]):
+    atividades = (
+        db.query(models.Atividade)
+        .filter(models.Atividade.viagem_id == viagem_id)
+        .order_by(models.Atividade.ordem, models.Atividade.id)
+        .all()
+    )
+    if not atividades:
+        return []
+
+    existing_ids = [a.id for a in atividades]
+    existing_set = set(existing_ids)
+
+    seen = set()
+    requested = []
+    for aid in atividade_ids or []:
+        if aid in seen:
+            continue
+        seen.add(aid)
+        if aid in existing_set:
+            requested.append(aid)
+
+    final_ids = requested + [aid for aid in existing_ids if aid not in seen]
+    by_id = {a.id: a for a in atividades}
+
+    for idx, aid in enumerate(final_ids, start=1):
+        by_id[aid].ordem = idx
+
+    db.commit()
+    return [by_id[aid] for aid in final_ids]

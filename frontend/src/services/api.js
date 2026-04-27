@@ -1,9 +1,9 @@
 import axios from 'axios';
 
+const baseURL = (import.meta?.env?.VITE_API_BASE_URL || '/api').trim();
+
 const api = axios.create({
-   //baseURL: 'http://localhost:8000',
-  // baseURL: 'http://34.61.244.240:8000',
-  baseURL: '/api',
+  baseURL,
 });
 
 api.interceptors.request.use((config) => {
@@ -100,10 +100,13 @@ export const expenseService = {
 
 export const activityService = {
   create: (viagem_id, data) => api.post('/atividades/', data, { params: { viagem_id } }),
+  update: (id, data) => api.put(`/atividades/${id}`, data),
+  remove: (id) => api.delete(`/atividades/${id}`),
   start: (id) => api.post(`/atividades/${id}/iniciar`),
   finish: (id) => api.post(`/atividades/${id}/finalizar`),
   pause: (id, data) => api.post(`/atividades/${id}/pausar`, data),
   finishPause: (pausa_id) => api.post(`/atividades/pausas/${pausa_id}/finalizar`),
+  reorder: (viagem_id, atividade_ids) => api.post('/atividades/reordenar', { atividade_ids }, { params: { viagem_id } }),
 };
 
 export default api;

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { tripService, expenseService, configService } from '../services/api';
+import { tripService, expenseService, activityService, configService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { 
-  MapPin, 
   Calendar, 
   Users, 
   Car, 
@@ -30,6 +29,7 @@ const DetalhesViagem = () => {
   const [loading, setLoading] = useState(true);
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
   const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
+  const [activityEditDeleteAllowedStatuses, setActivityEditDeleteAllowedStatuses] = useState(['pendente']);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -54,6 +54,8 @@ const DetalhesViagem = () => {
         if (Array.isArray(statuses)) setBlockedStatuses(statuses);
         const allowed = res.data?.trip_activity_expense_allowed_statuses;
         if (Array.isArray(allowed)) setActivityExpenseAllowedStatuses(allowed);
+        const actAllowed = res.data?.activity_edit_delete_allowed_statuses;
+        if (Array.isArray(actAllowed)) setActivityEditDeleteAllowedStatuses(actAllowed);
       } catch (err) {
         console.error(err);
       }
@@ -73,6 +75,14 @@ const DetalhesViagem = () => {
     (user?.id && trip?.responsavel_id === user.id) ||
     (user?.id && trip?.transporte?.motorista_id === user.id)
   );
+  const clientes = trip?.clientes || [];
+  const clientesTexto = clientes.join(', ') || 'Viagem';
+  const atividadesOrdenadas = [...(trip.atividades || [])].sort((a, b) => {
+    const ao = Number.isFinite(a?.ordem) ? a.ordem : 999999;
+    const bo = Number.isFinite(b?.ordem) ? b.ordem : 999999;
+    if (ao !== bo) return ao - bo;
+    return (a?.id || 0) - (b?.id || 0);
+  });
 
   const statusColors = {
     planejada: 'bg-indigo-100 text-indigo-700',
@@ -93,15 +103,12 @@ const DetalhesViagem = () => {
             <ArrowLeft size={24} />
           </button>
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-gray-800">{trip.cliente}</h1>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${statusColors[trip.status]}`}>
-                {trip.status.replace('_', ' ')}
-              </span>
+            <div className="mb-2">
+              <h1 className="text-2xl font-bold text-gray-800 whitespace-normal break-words leading-snug">{clientesTexto}</h1>
             </div>
-            <p className="text-gray-500 font-medium flex items-center gap-1">
-              <MapPin size={16} /> {trip.local_partida} → {trip.local_chegada}
-            </p>
+            <div className={`inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${statusColors[trip.status]}`}>
+              {trip.status.replace('_', ' ')}
+            </div>
           </div>
         </div>
 
@@ -187,9 +194,9 @@ const DetalhesViagem = () => {
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Chegada Prevista</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Retorno Previsto</p>
                 <p className="text-sm font-medium text-gray-700">
-                  {format(new Date(trip.data_hora_prevista_chegada), 'dd MMM yyyy, HH:mm', { locale: ptBR })}
+                  {format(new Date(trip.data_hora_prevista_retorno), 'dd MMM yyyy, HH:mm', { locale: ptBR })}
                 </p>
               </div>
             </div>
@@ -209,13 +216,18 @@ const DetalhesViagem = () => {
             </div>
 
             <div className="space-y-3">
-              {trip.atividades?.length === 0 ? (
+              {atividadesOrdenadas.length === 0 ? (
                 <p className="text-sm text-gray-500 bg-gray-50 p-6 rounded-2xl text-center border-2 border-dashed border-gray-100">
                   Nenhuma atividade registrada ainda.
                 </p>
               ) : (
-                trip.atividades.map(atv => (
-                  <div key={atv.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-100 transition-all">
+                atividadesOrdenadas.map(atv => (
+                  <button
+                    type="button"
+                    key={atv.id}
+                    onClick={() => navigate(`/viagens/${trip.id}/tempo/${atv.id}`)}
+                    className="w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-100 transition-all text-left"
+                  >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${atv.status === 'finalizada' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
                         {atv.status === 'finalizada' ? <CheckCircle size={20} /> : <Clock size={20} />}
@@ -225,12 +237,57 @@ const DetalhesViagem = () => {
                         <p className="text-xs text-gray-500">{atv.status}</p>
                       </div>
                     </div>
-                    {canMutateActivitiesExpenses && atv.status !== 'finalizada' && (
-                      <Link to={`/viagens/${trip.id}/tempo`} className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
-                        <ChevronRight size={20} />
-                      </Link>
-                    )}
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={!(canMutateActivitiesExpenses && activityEditDeleteAllowedStatuses.includes(atv.status))}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const next = window.prompt('Editar atividade', atv.descricao);
+                          if (next === null) return;
+                          const trimmed = String(next).trim();
+                          if (!trimmed) {
+                            alert('Descrição inválida');
+                            return;
+                          }
+                          try {
+                            await activityService.update(atv.id, { descricao: trimmed });
+                            fetchTrip();
+                          } catch (err) {
+                            console.error(err);
+                            alert(err?.response?.data?.detail || 'Erro ao editar atividade');
+                          }
+                        }}
+                        className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors disabled:opacity-50"
+                        aria-label="Editar atividade"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!(canMutateActivitiesExpenses && activityEditDeleteAllowedStatuses.includes(atv.status))}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const ok = window.confirm('Excluir esta atividade?');
+                          if (!ok) return;
+                          try {
+                            await activityService.remove(atv.id);
+                            fetchTrip();
+                          } catch (err) {
+                            console.error(err);
+                            alert(err?.response?.data?.detail || 'Erro ao excluir atividade');
+                          }
+                        }}
+                        className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                        aria-label="Excluir atividade"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <ChevronRight size={20} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                    </div>
+                  </button>
                 ))
               )}
             </div>

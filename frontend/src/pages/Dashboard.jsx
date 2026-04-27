@@ -97,6 +97,10 @@ const Dashboard = () => {
               </div>
             ) : (
               activeTrips.map(trip => (
+                (() => {
+                  const clientes = trip.clientes || [];
+                  const clientesTexto = clientes.join(', ') || 'Viagem';
+                  return (
                 <Link 
                   key={trip.id} 
                   to={`/viagens/${trip.id}`}
@@ -104,25 +108,24 @@ const Dashboard = () => {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
-                      {trip.cliente?.[0]}
+                      {clientesTexto?.[0]}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-800">{trip.cliente}</p>
-                      <p className="text-sm text-gray-500 flex items-center gap-1">
-                        <MapPin size={14} /> {trip.local_chegada}
-                      </p>
+                      <p className="font-bold text-gray-800 whitespace-normal break-words leading-snug">{clientesTexto}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="hidden sm:block text-right">
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Previsto</p>
                       <p className="text-sm font-medium text-gray-600">
-                        {format(new Date(trip.data_hora_prevista_chegada), 'dd MMM, HH:mm', { locale: ptBR })}
+                        {format(new Date(trip.data_hora_prevista_retorno), 'dd MMM, HH:mm', { locale: ptBR })}
                       </p>
                     </div>
                     <ChevronRight className="text-gray-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                   </div>
                 </Link>
+                  );
+                })()
               ))
             )}
           </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tripService } from '../services/api';
-import { Navigation, ArrowLeft, Clock, MapPin, AlertCircle, Car } from 'lucide-react';
+import { Navigation, ArrowLeft, Clock, AlertCircle, Car, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -80,11 +80,11 @@ const RegistroSaida = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
               <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                <MapPin size={20} />
+                <Users size={20} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Partindo de</p>
-                <p className="text-sm font-bold text-gray-800 truncate">{trip.local_partida}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Clientes</p>
+                <p className="text-sm font-bold text-gray-800 truncate">{(trip.clientes || []).join(', ') || '--'}</p>
               </div>
             </div>
 
@@ -93,8 +93,10 @@ const RegistroSaida = () => {
                 <Clock size={20} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Destino</p>
-                <p className="text-sm font-bold text-gray-800 truncate">{trip.local_chegada}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Retorno Previsto</p>
+                <p className="text-sm font-bold text-gray-800 truncate">
+                  {trip.data_hora_prevista_retorno ? format(new Date(trip.data_hora_prevista_retorno), "dd/MM/yyyy HH:mm") : '--'}
+                </p>
               </div>
             </div>
           </div>

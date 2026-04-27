@@ -36,6 +36,7 @@ function App() {
           <Route path="/viagens/:id/saida" element={<PrivateRoute><RegistroSaida /></PrivateRoute>} />
           <Route path="/viagens/:id/chegada" element={<PrivateRoute><RegistroChegada /></PrivateRoute>} />
           <Route path="/viagens/:id/tempo" element={<PrivateRoute><ControleTempo /></PrivateRoute>} />
+          <Route path="/viagens/:id/tempo/:atividadeId" element={<PrivateRoute><ControleTempo /></PrivateRoute>} />
           <Route path="/viagens/:id/despesa" element={<PrivateRoute><RegistroDespesa /></PrivateRoute>} />
           <Route path="/viagens/:id/despesa/:despesaId" element={<PrivateRoute><RegistroDespesa /></PrivateRoute>} />
           <Route path="/viagens/:id/relatorio" element={<PrivateRoute><RelatorioViagem /></PrivateRoute>} />

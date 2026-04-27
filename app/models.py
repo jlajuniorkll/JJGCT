@@ -30,12 +30,9 @@ class Viagem(Base):
     __tablename__ = "viagens"
     id = Column(Integer, primary_key=True, index=True)
     responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
-    cliente = Column(String)
     motivo = Column(String)
-    local_partida = Column(String)
-    local_chegada = Column(String)
     data_hora_prevista_saida = Column(DateTime)
-    data_hora_prevista_chegada = Column(DateTime)
+    data_hora_prevista_retorno = Column("data_hora_prevista_chegada", DateTime)
     data_hora_real_saida = Column(DateTime, nullable=True)
     data_hora_real_chegada = Column(DateTime, nullable=True)
     meio_transporte = Column(String)
@@ -47,7 +44,27 @@ class Viagem(Base):
     responsavel = relationship("Usuario", foreign_keys=[responsavel_id])
     transporte = relationship("TransporteViagem", back_populates="viagem", uselist=False)
     despesas = relationship("Despesa", back_populates="viagem")
-    atividades = relationship("Atividade", back_populates="viagem")
+    atividades = relationship("Atividade", back_populates="viagem", order_by="Atividade.ordem, Atividade.id")
+    clientes_itens = relationship(
+        "ViagemCliente",
+        back_populates="viagem",
+        cascade="all, delete-orphan",
+        order_by="ViagemCliente.id",
+    )
+
+    @property
+    def clientes(self):
+        return [c.nome for c in (self.clientes_itens or [])]
+
+
+class ViagemCliente(Base):
+    __tablename__ = "viagem_clientes"
+    id = Column(Integer, primary_key=True, index=True)
+    viagem_id = Column(Integer, ForeignKey("viagens.id", ondelete="CASCADE"))
+    nome = Column(String)
+    data_criacao = Column(DateTime(timezone=True), server_default=func.now())
+
+    viagem = relationship("Viagem", back_populates="clientes_itens")
 
 class TransporteViagem(Base):
     __tablename__ = "transporte_viagem"
@@ -96,6 +113,7 @@ class Atividade(Base):
     id = Column(Integer, primary_key=True, index=True)
     viagem_id = Column(Integer, ForeignKey("viagens.id"))
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
+    ordem = Column(Integer, nullable=False)
     inicio = Column(DateTime, nullable=True)
     fim = Column(DateTime, nullable=True)
     descricao = Column(String)
@@ -118,6 +136,8 @@ class AppConfig(Base):
     __tablename__ = "app_config"
     id = Column(Integer, primary_key=True, index=True)
     expense_photo_required = Column(Boolean, default=False)
+    expense_description_options = Column(String, default='["Almoço","Janta","Lanche","Hospedagem","Taxi/Uber","Estacionamento","Pedágio","Combustível","Locação"]')
+    activity_edit_delete_allowed_statuses = Column(String, default='["pendente"]')
     trip_edit_blocked_statuses = Column(String, default='["em_andamento","finalizada","cancelada"]')
     trip_activity_expense_allowed_statuses = Column(String, default='["em_andamento"]')
     trips_show_all_admin = Column(Boolean, default=True)

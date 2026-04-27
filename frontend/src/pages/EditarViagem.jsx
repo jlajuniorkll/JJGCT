@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { tripService, userService, vehicleService, configService } from '../services/api';
-import { ArrowLeft, Car, Save, Users } from 'lucide-react';
+import { ArrowLeft, Car, Plus, Save, Users, X } from 'lucide-react';
 
 const toDateTimeLocalValue = (value) => {
   if (!value) return '';
@@ -24,12 +24,10 @@ const EditarViagem = () => {
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
 
   const [formData, setFormData] = useState({
-    cliente: '',
     motivo: '',
-    local_partida: '',
-    local_chegada: '',
+    clientes: [''],
     data_hora_prevista_saida: '',
-    data_hora_prevista_chegada: '',
+    data_hora_prevista_retorno: '',
     meio_transporte: 'carona',
     participantes_ids: [],
     transporte: {
@@ -66,12 +64,10 @@ const EditarViagem = () => {
         }
 
         setFormData({
-          cliente: t.cliente || '',
           motivo: t.motivo || '',
-          local_partida: t.local_partida || '',
-          local_chegada: t.local_chegada || '',
+          clientes: t.clientes?.length ? t.clientes : [''],
           data_hora_prevista_saida: toDateTimeLocalValue(t.data_hora_prevista_saida),
-          data_hora_prevista_chegada: toDateTimeLocalValue(t.data_hora_prevista_chegada),
+          data_hora_prevista_retorno: toDateTimeLocalValue(t.data_hora_prevista_retorno),
           meio_transporte: t.meio_transporte || 'carona',
           participantes_ids: (t.participantes || []).map((p) => p.id),
           transporte: {
@@ -101,6 +97,24 @@ const EditarViagem = () => {
     });
   };
 
+  const addCliente = () => {
+    setFormData((prev) => ({ ...prev, clientes: [...(prev.clientes || []), ''] }));
+  };
+
+  const updateCliente = (index, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      clientes: (prev.clientes || []).map((c, i) => (i === index ? value : c)),
+    }));
+  };
+
+  const removeCliente = (index) => {
+    setFormData((prev) => {
+      const next = (prev.clientes || []).filter((_, i) => i !== index);
+      return { ...prev, clientes: next.length ? next : [''] };
+    });
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!trip) return;
@@ -115,13 +129,17 @@ const EditarViagem = () => {
       return;
     }
 
+    const clientes = (formData.clientes || []).map((c) => String(c).trim()).filter(Boolean);
+    if (!clientes.length) {
+      alert('Informe pelo menos um cliente.');
+      return;
+    }
+
     const payload = {
-      cliente: formData.cliente,
       motivo: formData.motivo,
-      local_partida: formData.local_partida,
-      local_chegada: formData.local_chegada,
+      clientes,
       data_hora_prevista_saida: formData.data_hora_prevista_saida,
-      data_hora_prevista_chegada: formData.data_hora_prevista_chegada,
+      data_hora_prevista_retorno: formData.data_hora_prevista_retorno,
       meio_transporte: formData.meio_transporte,
       participantes_ids: formData.participantes_ids,
       transporte: { ...formData.transporte },
@@ -182,16 +200,6 @@ const EditarViagem = () => {
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Cliente</label>
-              <input
-                type="text"
-                required
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.cliente}
-                onChange={(e) => setFormData({ ...formData, cliente: e.target.value })}
-              />
-            </div>
-            <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Motivo</label>
               <input
                 type="text"
@@ -201,25 +209,39 @@ const EditarViagem = () => {
                 onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
               />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Local de Partida</label>
-              <input
-                type="text"
-                required
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.local_partida}
-                onChange={(e) => setFormData({ ...formData, local_partida: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Local de Chegada</label>
-              <input
-                type="text"
-                required
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.local_chegada}
-                onChange={(e) => setFormData({ ...formData, local_chegada: e.target.value })}
-              />
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <label className="block text-sm font-bold text-gray-700">Clientes a Visitar</label>
+                <button
+                  type="button"
+                  onClick={addCliente}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-blue-100 transition-colors"
+                >
+                  <Plus size={16} /> Adicionar
+                </button>
+              </div>
+              <div className="space-y-2">
+                {(formData.clientes || []).map((cliente, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="text"
+                      required={idx === 0}
+                      className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={`Cliente ${idx + 1}`}
+                      value={cliente}
+                      onChange={(e) => updateCliente(idx, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCliente(idx)}
+                      className="px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"
+                      aria-label={`Remover cliente ${idx + 1}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Saída Prevista</label>
@@ -232,13 +254,13 @@ const EditarViagem = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Chegada Prevista</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Retorno Previsto</label>
               <input
                 type="datetime-local"
                 required
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.data_hora_prevista_chegada}
-                onChange={(e) => setFormData({ ...formData, data_hora_prevista_chegada: e.target.value })}
+                value={formData.data_hora_prevista_retorno}
+                onChange={(e) => setFormData({ ...formData, data_hora_prevista_retorno: e.target.value })}
               />
             </div>
             <div className="md:col-span-2">

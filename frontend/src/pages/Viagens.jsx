@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { 
   Plus, 
   Search, 
-  MapPin, 
   Calendar, 
   Users, 
   Car, 
@@ -28,12 +27,10 @@ const Viagens = () => {
   
   // Form state
   const [formData, setFormData] = useState({
-    cliente: '',
     motivo: '',
-    local_partida: '',
-    local_chegada: '',
+    clientes: [''],
     data_hora_prevista_saida: '',
-    data_hora_prevista_chegada: '',
+    data_hora_prevista_retorno: '',
     meio_transporte: 'carona',
     participantes_ids: [],
     transporte: {
@@ -75,10 +72,33 @@ const Viagens = () => {
     }
   };
 
+  const addCliente = () => {
+    setFormData((prev) => ({ ...prev, clientes: [...(prev.clientes || []), ''] }));
+  };
+
+  const updateCliente = (index, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      clientes: (prev.clientes || []).map((c, i) => (i === index ? value : c)),
+    }));
+  };
+
+  const removeCliente = (index) => {
+    setFormData((prev) => {
+      const next = (prev.clientes || []).filter((_, i) => i !== index);
+      return { ...prev, clientes: next.length ? next : [''] };
+    });
+  };
+
   const handleCreateTrip = async (e) => {
     e.preventDefault();
     try {
       const payload = { ...formData };
+      payload.clientes = (payload.clientes || []).map((c) => String(c).trim()).filter(Boolean);
+      if (!payload.clientes.length) {
+        alert('Informe pelo menos um cliente.');
+        return;
+      }
       if (!payload.participantes_ids?.length && user?.id) {
         payload.participantes_ids = [user.id];
       }
@@ -93,12 +113,10 @@ const Viagens = () => {
       fetchTrips();
       // Reset form
       setFormData({
-        cliente: '',
         motivo: '',
-        local_partida: '',
-        local_chegada: '',
+        clientes: [''],
         data_hora_prevista_saida: '',
-        data_hora_prevista_chegada: '',
+        data_hora_prevista_retorno: '',
         meio_transporte: 'carona',
         participantes_ids: [],
         transporte: { veiculo_id: '', motorista_id: '', km_saida: '' }
@@ -110,9 +128,7 @@ const Viagens = () => {
 
   const filteredTrips = trips.filter(trip => {
     const matchesStatus = !filterStatus || trip.status === filterStatus;
-    const matchesSearch = !searchTerm || 
-      trip.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trip.local_chegada.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || (trip.clientes || []).join(' ').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
@@ -151,7 +167,7 @@ const Viagens = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
-            placeholder="Buscar por cliente ou destino..."
+            placeholder="Buscar por cliente..."
             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -191,6 +207,10 @@ const Viagens = () => {
           </div>
         ) : (
           sortedTrips.map(trip => (
+            (() => {
+              const clientes = trip.clientes || [];
+              const clientesTexto = clientes.join(', ') || 'Viagem';
+              return (
             <Link 
               key={trip.id} 
               to={`/viagens/${trip.id}`}
@@ -203,17 +223,19 @@ const Viagens = () => {
                 <span className="text-xs font-bold text-gray-400">#{trip.id}</span>
               </div>
               
-              <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">{trip.cliente}</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors whitespace-normal break-words leading-snug">
+                {clientesTexto}
+              </h3>
               <p className="text-sm text-gray-500 mb-4 line-clamp-2">{trip.motivo}</p>
               
               <div className="space-y-3 pt-4 border-t border-gray-50">
                 <div className="flex items-center gap-3 text-sm text-gray-600 font-medium">
-                  <MapPin size={16} className="text-blue-500" />
-                  <span className="truncate">{trip.local_partida} → {trip.local_chegada}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-gray-600 font-medium">
                   <Calendar size={16} className="text-blue-500" />
                   <span>{format(new Date(trip.data_hora_prevista_saida), 'dd/MM/yyyy HH:mm')}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600 font-medium">
+                  <Clock size={16} className="text-blue-500" />
+                  <span>{format(new Date(trip.data_hora_prevista_retorno), 'dd/MM/yyyy HH:mm')}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2">
                   <div className="flex -space-x-2">
@@ -235,6 +257,8 @@ const Viagens = () => {
                 </div>
               </div>
             </Link>
+              );
+            })()
           ))
         )}
       </div>
@@ -254,15 +278,6 @@ const Viagens = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Cliente</label>
-                    <input 
-                      type="text" required
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                      value={formData.cliente}
-                      onChange={(e) => setFormData({...formData, cliente: e.target.value})}
-                    />
-                  </div>
-                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Motivo</label>
                     <textarea 
                       required
@@ -271,24 +286,38 @@ const Viagens = () => {
                       onChange={(e) => setFormData({...formData, motivo: e.target.value})}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Local Partida</label>
-                      <input 
-                        type="text" required
-                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.local_partida}
-                        onChange={(e) => setFormData({...formData, local_partida: e.target.value})}
-                      />
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <label className="block text-sm font-bold text-gray-700">Clientes a Visitar</label>
+                      <button
+                        type="button"
+                        onClick={addCliente}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-blue-100 transition-colors"
+                      >
+                        <Plus size={16} /> Adicionar
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Local Chegada</label>
-                      <input 
-                        type="text" required
-                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.local_chegada}
-                        onChange={(e) => setFormData({...formData, local_chegada: e.target.value})}
-                      />
+                    <div className="space-y-2">
+                      {(formData.clientes || []).map((cliente, idx) => (
+                        <div key={idx} className="flex gap-2">
+                          <input
+                            type="text"
+                            required={idx === 0}
+                            className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Cliente ${idx + 1}`}
+                            value={cliente}
+                            onChange={(e) => updateCliente(idx, e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeCliente(idx)}
+                            className="px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"
+                            aria-label={`Remover cliente ${idx + 1}`}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -304,12 +333,12 @@ const Viagens = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Chegada Prevista</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Retorno Previsto</label>
                     <input 
                       type="datetime-local" required
                       className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                      value={formData.data_hora_prevista_chegada}
-                      onChange={(e) => setFormData({...formData, data_hora_prevista_chegada: e.target.value})}
+                      value={formData.data_hora_prevista_retorno}
+                      onChange={(e) => setFormData({...formData, data_hora_prevista_retorno: e.target.value})}
                     />
                   </div>
                   <div>

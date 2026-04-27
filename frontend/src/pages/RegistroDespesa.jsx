@@ -20,9 +20,21 @@ const RegistroDespesa = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
+  const [expenseDescriptionOptions, setExpenseDescriptionOptions] = useState([
+    'Almoço',
+    'Janta',
+    'Lanche',
+    'Hospedagem',
+    'Taxi/Uber',
+    'Estacionamento',
+    'Pedágio',
+    'Combustível',
+    'Locação',
+  ]);
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const valorInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
     valor: '',
@@ -127,6 +139,21 @@ const RegistroDespesa = () => {
       try {
         const res = await configService.get();
         setExpensePhotoRequired(!!res.data?.expense_photo_required);
+        setExpenseDescriptionOptions(
+          Array.isArray(res.data?.expense_description_options) && res.data.expense_description_options.length
+            ? res.data.expense_description_options
+            : [
+                'Almoço',
+                'Janta',
+                'Lanche',
+                'Hospedagem',
+                'Taxi/Uber',
+                'Estacionamento',
+                'Pedágio',
+                'Combustível',
+                'Locação',
+              ],
+        );
       } catch (err) {
         console.error(err);
       }
@@ -135,6 +162,12 @@ const RegistroDespesa = () => {
     fetchDespesa();
     fetchConfig();
   }, [despesaId]);
+
+  useEffect(() => {
+    if (loading) return;
+    const t = setTimeout(() => valorInputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [despesaId, loading]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -183,6 +216,7 @@ const RegistroDespesa = () => {
             <div className="relative inline-block">
               <span className="absolute left-0 top-1/2 -translate-y-1/2 text-3xl font-black text-gray-300">R$</span>
               <input 
+                ref={valorInputRef}
                 type="number" 
                 step="0.01"
                 required
@@ -215,13 +249,20 @@ const RegistroDespesa = () => {
                 <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
                   <FileText size={18} className="text-blue-500" /> Descrição
                 </label>
-                <textarea 
+                <input
                   required
-                  placeholder="Ex: Almoço com cliente, Estacionamento, Combustível..."
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium h-32"
+                  type="text"
+                  list="expense-desc-options"
+                  placeholder="Ex: Almoço, Estacionamento, Combustível..."
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   value={formData.descricao}
                   onChange={(e) => setFormData({...formData, descricao: e.target.value})}
                 />
+                <datalist id="expense-desc-options">
+                  {expenseDescriptionOptions.map((opt) => (
+                    <option key={opt} value={opt} />
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -231,9 +272,9 @@ const RegistroDespesa = () => {
                 <Camera size={18} className="text-blue-500" /> Comprovante / Foto {expensePhotoRequired ? '(obrigatório)' : '(opcional)'}
               </label>
               
-              <div className="relative group h-full min-h-[260px]">
+              <div className="relative group">
                 {!preview ? (
-                  <div className="flex flex-col gap-3 h-full">
+                  <div className="flex flex-col gap-3">
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -257,7 +298,7 @@ const RegistroDespesa = () => {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={optimizing}
-                      className="flex flex-col items-center justify-center w-full flex-1 min-h-[200px] border-4 border-dashed border-gray-100 rounded-3xl hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer group disabled:opacity-50"
+                      className="flex flex-col items-center justify-center w-full h-[200px] md:h-[220px] border-4 border-dashed border-gray-100 rounded-3xl hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer group disabled:opacity-50"
                     >
                       <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 mb-3 group-hover:scale-110 transition-transform">
                         <Upload size={32} />
@@ -274,7 +315,7 @@ const RegistroDespesa = () => {
                     <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
                   </div>
                 ) : (
-                  <div className="relative w-full h-full rounded-3xl overflow-hidden border-4 border-emerald-100 shadow-inner bg-gray-100">
+                  <div className="relative w-full h-[240px] md:h-[280px] rounded-3xl overflow-hidden border-4 border-emerald-100 shadow-inner bg-gray-100">
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button 

@@ -151,10 +151,14 @@ class AtividadeBase(BaseModel):
 class AtividadeCreate(AtividadeBase):
     usuario_id: int
 
+class AtividadeUpdate(BaseModel):
+    descricao: Optional[str] = None
+
 class Atividade(AtividadeBase):
     id: int
     viagem_id: int
     usuario_id: int
+    ordem: Optional[int] = None
     inicio: Optional[datetime] = None
     fim: Optional[datetime] = None
     status: str
@@ -163,14 +167,16 @@ class Atividade(AtividadeBase):
     class Config:
         from_attributes = True
 
+
+class AtividadeReorder(BaseModel):
+    atividade_ids: List[int]
+
 # Schemas para Viagem
 class ViagemBase(BaseModel):
-    cliente: str
     motivo: str
-    local_partida: str
-    local_chegada: str
+    clientes: List[str]
     data_hora_prevista_saida: datetime
-    data_hora_prevista_chegada: datetime
+    data_hora_prevista_retorno: datetime
     meio_transporte: str
     obs_interna: Optional[str] = None
     obs_geral: Optional[str] = None
@@ -182,12 +188,10 @@ class ViagemCreate(ViagemBase):
 
 
 class ViagemUpdate(BaseModel):
-    cliente: Optional[str] = None
     motivo: Optional[str] = None
-    local_partida: Optional[str] = None
-    local_chegada: Optional[str] = None
+    clientes: Optional[List[str]] = None
     data_hora_prevista_saida: Optional[datetime] = None
-    data_hora_prevista_chegada: Optional[datetime] = None
+    data_hora_prevista_retorno: Optional[datetime] = None
     meio_transporte: Optional[str] = None
     obs_interna: Optional[str] = None
     obs_geral: Optional[str] = None
@@ -220,6 +224,8 @@ class RelatorioViagem(BaseModel):
 
 class AppConfig(BaseModel):
     expense_photo_required: bool
+    expense_description_options: List[str]
+    activity_edit_delete_allowed_statuses: List[str]
     trip_edit_blocked_statuses: List[str]
     trip_activity_expense_allowed_statuses: List[str]
     trips_show_all_admin: bool
@@ -228,6 +234,8 @@ class AppConfig(BaseModel):
 
 class AppConfigUpdate(BaseModel):
     expense_photo_required: Optional[bool] = None
+    expense_description_options: Optional[List[str]] = None
+    activity_edit_delete_allowed_statuses: Optional[List[str]] = None
     trip_edit_blocked_statuses: Optional[List[str]] = None
     trip_activity_expense_allowed_statuses: Optional[List[str]] = None
     trips_show_all_admin: Optional[bool] = None

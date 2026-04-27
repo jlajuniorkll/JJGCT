@@ -6,12 +6,12 @@ import {
   ArrowLeft, 
   Download, 
   Printer, 
-  MapPin, 
   Users, 
   Car, 
   Clock, 
   DollarSign,
-  Briefcase
+  Briefcase,
+  Calendar
 } from 'lucide-react';
 import { format, differenceInSeconds } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,6 +40,8 @@ const RelatorioViagem = () => {
   if (!report) return <div className="p-8 text-center">Relatório não encontrado.</div>;
 
   const { viagem, distancia_percorrida_km, total_horas_trabalhadas, total_despesas } = report;
+  const clientes = viagem?.clientes || [];
+  const clientesTexto = clientes.join(', ') || 'Viagem';
 
   const getComprovanteUrl = (path) => {
     if (!path) return null;
@@ -83,7 +85,7 @@ const RelatorioViagem = () => {
             <div className="flex items-center gap-2 text-blue-400 font-black uppercase tracking-widest text-xs">
               <Briefcase size={14} /> Viagem Corporativa
             </div>
-            <h2 className="text-3xl font-black">{viagem.cliente}</h2>
+            <h2 className="text-3xl font-black whitespace-normal break-words leading-snug">{clientesTexto}</h2>
             <p className="text-gray-400 font-medium">{viagem.motivo}</p>
           </div>
           <div className="text-right">
@@ -119,15 +121,14 @@ const RelatorioViagem = () => {
             {/* Itinerary */}
             <div className="space-y-4">
               <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
-                <MapPin size={16} className="text-blue-600" /> Itinerário Real
+                <Calendar size={16} className="text-blue-600" /> Período Real
               </h3>
               <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-blue-100">
                 <div className="relative pl-8">
                   <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 border-4 border-white shadow-sm flex items-center justify-center z-10">
                     <div className="w-2 h-2 rounded-full bg-blue-600"></div>
                   </div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Partida</p>
-                  <p className="text-sm font-bold text-gray-800">{viagem.local_partida}</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Saída</p>
                   <p className="text-xs font-medium text-gray-500">
                     {viagem.data_hora_real_saida 
                       ? format(new Date(viagem.data_hora_real_saida), "dd MMM, HH:mm'h'", { locale: ptBR })
@@ -138,14 +139,17 @@ const RelatorioViagem = () => {
                   <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-emerald-100 border-4 border-white shadow-sm flex items-center justify-center z-10">
                     <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
                   </div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Chegada</p>
-                  <p className="text-sm font-bold text-gray-800">{viagem.local_chegada}</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Retorno</p>
                   <p className="text-xs font-medium text-gray-500">
                     {viagem.data_hora_real_chegada 
                       ? format(new Date(viagem.data_hora_real_chegada), "dd MMM, HH:mm'h'", { locale: ptBR })
                       : 'Não registrada'}
                   </p>
                 </div>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Clientes</p>
+                <p className="text-sm font-bold text-gray-800">{clientes.join(', ') || '--'}</p>
               </div>
             </div>
 

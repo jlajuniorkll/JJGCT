@@ -45,6 +45,8 @@ def get_db():
 
 @router.post("/", response_model=schemas.Viagem)
 def create_viagem(viagem: schemas.ViagemCreate, x_user_id: int = Header(default=None), db: Session = Depends(get_db)):
+    if not viagem.clientes:
+        raise HTTPException(status_code=400, detail="A viagem deve ter pelo menos um cliente.")
     if not viagem.participantes_ids:
         if x_user_id:
             viagem = schemas.ViagemCreate(**{**viagem.dict(), "participantes_ids": [x_user_id]})
