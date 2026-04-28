@@ -204,6 +204,9 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
     if payload.expense_photo_required is not None:
         cfg.expense_photo_required = payload.expense_photo_required
 
+    if payload.report_include_receipts is not None:
+        cfg.report_include_receipts = payload.report_include_receipts
+
     if payload.expense_description_options is not None:
         cfg.expense_description_options = json.dumps(payload.expense_description_options)
 

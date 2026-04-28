@@ -24,28 +24,36 @@ const PrivateRoute = ({ children }) => {
   return user ? <Layout>{children}</Layout> : <Navigate to="/login" />;
 };
 
+const AppRoutes = () => {
+  const { iaEnabled } = useAuth();
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+      <Route path="/viagens" element={<PrivateRoute><Viagens /></PrivateRoute>} />
+      <Route path="/viagens/:id" element={<PrivateRoute><DetalhesViagem /></PrivateRoute>} />
+      <Route path="/viagens/:id/editar" element={<PrivateRoute><EditarViagem /></PrivateRoute>} />
+      <Route path="/viagens/:id/saida" element={<PrivateRoute><RegistroSaida /></PrivateRoute>} />
+      <Route path="/viagens/:id/chegada" element={<PrivateRoute><RegistroChegada /></PrivateRoute>} />
+      <Route path="/viagens/:id/tempo" element={<PrivateRoute><ControleTempo /></PrivateRoute>} />
+      <Route path="/viagens/:id/tempo/:atividadeId" element={<PrivateRoute><ControleTempo /></PrivateRoute>} />
+      <Route path="/viagens/:id/despesa" element={<PrivateRoute><RegistroDespesa /></PrivateRoute>} />
+      <Route path="/viagens/:id/despesa/:despesaId" element={<PrivateRoute><RegistroDespesa /></PrivateRoute>} />
+      <Route path="/viagens/:id/relatorio" element={<PrivateRoute><RelatorioViagem /></PrivateRoute>} />
+      <Route path="/admin/usuarios" element={<PrivateRoute><AdminUsuarios /></PrivateRoute>} />
+      <Route path="/admin/veiculos" element={<PrivateRoute><AdminVeiculos /></PrivateRoute>} />
+      {iaEnabled ? <Route path="/admin/ia" element={<PrivateRoute><AdminIA /></PrivateRoute>} /> : null}
+      <Route path="/admin/configuracoes" element={<PrivateRoute><Configuracoes /></PrivateRoute>} />
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+};
+
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/viagens" element={<PrivateRoute><Viagens /></PrivateRoute>} />
-          <Route path="/viagens/:id" element={<PrivateRoute><DetalhesViagem /></PrivateRoute>} />
-          <Route path="/viagens/:id/editar" element={<PrivateRoute><EditarViagem /></PrivateRoute>} />
-          <Route path="/viagens/:id/saida" element={<PrivateRoute><RegistroSaida /></PrivateRoute>} />
-          <Route path="/viagens/:id/chegada" element={<PrivateRoute><RegistroChegada /></PrivateRoute>} />
-          <Route path="/viagens/:id/tempo" element={<PrivateRoute><ControleTempo /></PrivateRoute>} />
-          <Route path="/viagens/:id/tempo/:atividadeId" element={<PrivateRoute><ControleTempo /></PrivateRoute>} />
-          <Route path="/viagens/:id/despesa" element={<PrivateRoute><RegistroDespesa /></PrivateRoute>} />
-          <Route path="/viagens/:id/despesa/:despesaId" element={<PrivateRoute><RegistroDespesa /></PrivateRoute>} />
-          <Route path="/viagens/:id/relatorio" element={<PrivateRoute><RelatorioViagem /></PrivateRoute>} />
-          <Route path="/admin/usuarios" element={<PrivateRoute><AdminUsuarios /></PrivateRoute>} />
-          <Route path="/admin/veiculos" element={<PrivateRoute><AdminVeiculos /></PrivateRoute>} />
-          <Route path="/admin/ia" element={<PrivateRoute><AdminIA /></PrivateRoute>} />
-          <Route path="/admin/configuracoes" element={<PrivateRoute><Configuracoes /></PrivateRoute>} />
-        </Routes>
+        <AppRoutes />
       </AuthProvider>
     </Router>
   );

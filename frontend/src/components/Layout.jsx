@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, iaEnabled } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,16 +33,20 @@ const Layout = ({ children }) => {
     { name: 'Viagens', icon: MapPin, path: '/viagens' },
     { name: 'Usuários', icon: Users, path: '/admin/usuarios', adminOnly: true },
     { name: 'Veículos', icon: Car, path: '/admin/veiculos', adminOnly: true },
-    { name: 'IA', icon: Sparkles, path: '/admin/ia', adminOnly: true },
+    { name: 'IA', icon: Sparkles, path: '/admin/ia', adminOnly: true, iaOnly: true },
     { name: 'Configurações', icon: Settings, path: '/admin/configuracoes', adminOnly: true },
   ];
 
-  const filteredItems = menuItems.filter(item => !item.adminOnly || user?.tipousuario === 'admin');
+  const filteredItems = menuItems.filter((item) => {
+    if (item.adminOnly && user?.tipousuario !== 'admin') return false;
+    if (item.iaOnly && !iaEnabled) return false;
+    return true;
+  });
 
   return (
-    <div className="min-height-screen bg-gray-100 flex flex-col md:flex-row">
+    <div className="min-height-screen bg-gray-100 flex flex-col md:flex-row print:bg-white">
       {/* Mobile Header */}
-      <div className="md:hidden bg-blue-600 text-white p-4 flex justify-between items-center shadow-md">
+      <div className="md:hidden bg-blue-600 text-white p-4 flex justify-between items-center shadow-md print:hidden">
         <h1 className="text-xl font-bold">Viagens Corporativas</h1>
         <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -52,7 +56,7 @@ const Layout = ({ children }) => {
       {/* Sidebar / Mobile Menu */}
       <div className={`
         ${isMenuOpen ? 'block' : 'hidden'} 
-        md:block md:w-64 bg-white border-r border-gray-200 h-screen sticky top-0 z-50
+        md:block md:w-64 bg-white border-r border-gray-200 h-screen sticky top-0 z-50 print:hidden
       `}>
         <div className="hidden md:flex p-6 border-b border-gray-100 items-center gap-2">
           <MapPin className="text-blue-600" />
@@ -101,11 +105,11 @@ const Layout = ({ children }) => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-auto print:p-0 print:overflow-visible">
         {children}
       </main>
 
-      <ChatIA />
+      {iaEnabled ? <ChatIA /> : null}
     </div>
   );
 };

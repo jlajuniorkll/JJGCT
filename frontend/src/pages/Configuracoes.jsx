@@ -19,12 +19,13 @@ const ACTIVITY_STATUS_OPTIONS = [
 ];
 
 const Configuracoes = () => {
-  const { user } = useAuth();
+  const { user, refreshConfig } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
+  const [reportIncludeReceipts, setReportIncludeReceipts] = useState(true);
   const [expenseDescriptionOptions, setExpenseDescriptionOptions] = useState([
     'Almoço',
     'Janta',
@@ -67,6 +68,7 @@ const Configuracoes = () => {
       const res = await configService.get();
       const data = res.data;
       setExpensePhotoRequired(!!data.expense_photo_required);
+      setReportIncludeReceipts(data?.report_include_receipts !== false);
       setExpenseDescriptionOptions(
         Array.isArray(data.expense_description_options) && data.expense_description_options.length
           ? data.expense_description_options
@@ -144,6 +146,7 @@ const Configuracoes = () => {
     try {
       await configService.update({
         expense_photo_required: expensePhotoRequired,
+        report_include_receipts: reportIncludeReceipts,
         expense_description_options: expenseDescriptionOptions,
         activity_edit_delete_allowed_statuses: activityEditDeleteAllowedStatuses,
         ia_provider: iaProvider,
@@ -159,6 +162,7 @@ const Configuracoes = () => {
       setAnthropicApiKeyInput('');
       setGeminiApiKeyInput('');
       await fetchConfig();
+      await refreshConfig?.();
       alert('Configurações salvas');
     } catch (err) {
       console.error(err);
@@ -251,6 +255,24 @@ const Configuracoes = () => {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Relatórios</h2>
+            <label className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer">
+              <div>
+                <p className="text-sm font-black text-gray-800">Incluir cópias dos comprovantes</p>
+                <p className="text-xs font-bold text-gray-500">
+                  Exibe a seção de anexos de despesas no relatório consolidado (tela/impressão/PDF).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={reportIncludeReceipts}
+                onChange={(e) => setReportIncludeReceipts(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+              />
+            </label>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">

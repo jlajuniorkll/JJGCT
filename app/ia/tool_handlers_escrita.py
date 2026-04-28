@@ -210,9 +210,243 @@ def criar_atividade(db: Session, usuario_logado: models.Usuario, args: dict[str,
     return prop.to_dict()
 
 
+def iniciar_atividade(db: Session, usuario_logado: models.Usuario, args: dict[str, Any]):
+    missing: list[str] = []
+    for k in ("viagem_id", "atividade_id"):
+        if args.get(k) is None or (isinstance(args.get(k), str) and not str(args.get(k)).strip()):
+            missing.append(k)
+    if missing:
+        return {"erro": "campos faltando: " + ", ".join(missing)}
+
+    try:
+        viagem_id = int(args.get("viagem_id"))
+    except Exception:
+        return {"erro": "viagem_id inválido."}
+
+    try:
+        atividade_id = int(args.get("atividade_id"))
+    except Exception:
+        return {"erro": "atividade_id inválido."}
+
+    db_viagem = crud.get_viagem(db, viagem_id)
+    if not db_viagem:
+        return {"erro": "Viagem não encontrada."}
+    if not _user_is_participant(usuario_logado, db_viagem):
+        return {"erro": "Você não tem permissão para isso."}
+    if not _status_allows_mutation(db, db_viagem):
+        return {"erro": "Você não tem permissão para isso.", "detalhe": "Atividades não permitidas para este status de viagem."}
+
+    atividade = crud.get_atividade(db, atividade_id)
+    if not atividade:
+        return {"erro": "Atividade não encontrada."}
+    if int(getattr(atividade, "viagem_id", 0) or 0) != viagem_id:
+        return {"erro": "Atividade não pertence a esta viagem."}
+
+    status = str(getattr(atividade, "status", "") or "")
+    if status == "finalizada":
+        return {"erro": "Atividade já está finalizada."}
+    if status != "pendente":
+        return {"erro": "Atividade não está pendente para iniciar."}
+
+    args_validados = {"viagem_id": viagem_id, "atividade_id": atividade_id}
+    resumo = (
+        f"Iniciar atividade #{atividade_id} na Viagem #{viagem_id}\n"
+        f"- Descrição: {getattr(atividade, 'descricao', '')}"
+    )
+    prop = proposals.criar_proposta(
+        usuario_id=int(usuario_logado.id),
+        ferramenta="iniciar_atividade",
+        args_validados=args_validados,
+        resumo_legivel=resumo,
+    )
+    return prop.to_dict()
+
+
+def pausar_atividade(db: Session, usuario_logado: models.Usuario, args: dict[str, Any]):
+    missing: list[str] = []
+    for k in ("viagem_id", "atividade_id", "motivo"):
+        if args.get(k) is None or (isinstance(args.get(k), str) and not str(args.get(k)).strip()):
+            missing.append(k)
+    if missing:
+        return {"erro": "campos faltando: " + ", ".join(missing)}
+
+    try:
+        viagem_id = int(args.get("viagem_id"))
+    except Exception:
+        return {"erro": "viagem_id inválido."}
+
+    try:
+        atividade_id = int(args.get("atividade_id"))
+    except Exception:
+        return {"erro": "atividade_id inválido."}
+
+    motivo = str(args.get("motivo") or "").strip()
+    if not motivo:
+        return {"erro": "motivo inválido."}
+
+    db_viagem = crud.get_viagem(db, viagem_id)
+    if not db_viagem:
+        return {"erro": "Viagem não encontrada."}
+    if not _user_is_participant(usuario_logado, db_viagem):
+        return {"erro": "Você não tem permissão para isso."}
+    if not _status_allows_mutation(db, db_viagem):
+        return {"erro": "Você não tem permissão para isso.", "detalhe": "Atividades não permitidas para este status de viagem."}
+
+    atividade = crud.get_atividade(db, atividade_id)
+    if not atividade:
+        return {"erro": "Atividade não encontrada."}
+    if int(getattr(atividade, "viagem_id", 0) or 0) != viagem_id:
+        return {"erro": "Atividade não pertence a esta viagem."}
+
+    status = str(getattr(atividade, "status", "") or "")
+    if status != "ativa":
+        return {"erro": "Atividade não está ativa para pausar."}
+
+    open_pause = (
+        db.query(models.Pausa)
+        .filter(models.Pausa.atividade_id == atividade_id)
+        .filter(models.Pausa.fim.is_(None))
+        .first()
+    )
+    if open_pause:
+        return {"erro": "Já existe uma pausa em aberto para esta atividade.", "pausa_id": int(open_pause.id)}
+
+    args_validados = {"viagem_id": viagem_id, "atividade_id": atividade_id, "motivo": motivo}
+    resumo = (
+        f"Pausar atividade #{atividade_id} na Viagem #{viagem_id}\n"
+        f"- Motivo: {motivo}"
+    )
+    prop = proposals.criar_proposta(
+        usuario_id=int(usuario_logado.id),
+        ferramenta="pausar_atividade",
+        args_validados=args_validados,
+        resumo_legivel=resumo,
+    )
+    return prop.to_dict()
+
+
+def finalizar_pausa(db: Session, usuario_logado: models.Usuario, args: dict[str, Any]):
+    missing: list[str] = []
+    for k in ("viagem_id", "pausa_id"):
+        if args.get(k) is None or (isinstance(args.get(k), str) and not str(args.get(k)).strip()):
+            missing.append(k)
+    if missing:
+        return {"erro": "campos faltando: " + ", ".join(missing)}
+
+    try:
+        viagem_id = int(args.get("viagem_id"))
+    except Exception:
+        return {"erro": "viagem_id inválido."}
+
+    try:
+        pausa_id = int(args.get("pausa_id"))
+    except Exception:
+        return {"erro": "pausa_id inválido."}
+
+    db_viagem = crud.get_viagem(db, viagem_id)
+    if not db_viagem:
+        return {"erro": "Viagem não encontrada."}
+    if not _user_is_participant(usuario_logado, db_viagem):
+        return {"erro": "Você não tem permissão para isso."}
+    if not _status_allows_mutation(db, db_viagem):
+        return {"erro": "Você não tem permissão para isso.", "detalhe": "Atividades não permitidas para este status de viagem."}
+
+    pausa = db.query(models.Pausa).filter(models.Pausa.id == pausa_id).first()
+    if not pausa:
+        return {"erro": "Pausa não encontrada."}
+
+    atividade = crud.get_atividade(db, int(getattr(pausa, "atividade_id", 0) or 0))
+    if not atividade:
+        return {"erro": "Atividade da pausa não encontrada."}
+    if int(getattr(atividade, "viagem_id", 0) or 0) != viagem_id:
+        return {"erro": "Pausa não pertence a esta viagem."}
+
+    if getattr(pausa, "fim", None) is not None:
+        return {"erro": "Pausa já está finalizada."}
+
+    args_validados = {"viagem_id": viagem_id, "pausa_id": pausa_id}
+    resumo = f"Finalizar pausa #{pausa_id} (retomar atividade #{int(getattr(pausa, 'atividade_id', 0) or 0)}) na Viagem #{viagem_id}"
+    prop = proposals.criar_proposta(
+        usuario_id=int(usuario_logado.id),
+        ferramenta="finalizar_pausa",
+        args_validados=args_validados,
+        resumo_legivel=resumo,
+    )
+    return prop.to_dict()
+
+
+def finalizar_viagem(db: Session, usuario_logado: models.Usuario, args: dict[str, Any]):
+    missing: list[str] = []
+    for k in ("viagem_id",):
+        if args.get(k) is None or (isinstance(args.get(k), str) and not str(args.get(k)).strip()):
+            missing.append(k)
+    if missing:
+        return {"erro": "campos faltando: " + ", ".join(missing)}
+
+    try:
+        viagem_id = int(args.get("viagem_id"))
+    except Exception:
+        return {"erro": "viagem_id inválido."}
+
+    db_viagem = crud.get_viagem(db, viagem_id)
+    if not db_viagem:
+        return {"erro": "Viagem não encontrada."}
+    if not _user_is_participant(usuario_logado, db_viagem):
+        return {"erro": "Você não tem permissão para isso."}
+    if str(getattr(db_viagem, "status", "") or "") != "em_andamento":
+        return {"erro": "A chegada só pode ser registrada para viagens em andamento."}
+
+    pendentes = [a for a in (getattr(db_viagem, "atividades", None) or []) if str(getattr(a, "status", "") or "") != "finalizada"]
+    if pendentes:
+        return {
+            "erro": "Ainda existem atividades não finalizadas. Finalize todas antes de encerrar a viagem.",
+            "atividades_pendentes": [
+                {"id": int(a.id), "descricao": str(a.descricao), "status": str(a.status)} for a in pendentes
+            ],
+        }
+
+    km_chegada = args.get("km_chegada")
+    needs_km = str(getattr(db_viagem, "meio_transporte", "") or "") in {"carro empresa", "carro próprio"}
+    if needs_km and km_chegada is None:
+        return {"erro": "campos faltando: km_chegada"}
+
+    km_chegada_f = None
+    if km_chegada is not None:
+        try:
+            km_chegada_f = float(km_chegada)
+        except Exception:
+            return {"erro": "km_chegada inválido."}
+        if km_chegada_f <= 0:
+            return {"erro": "km_chegada inválido."}
+        if getattr(db_viagem, "transporte", None) and getattr(db_viagem.transporte, "km_saida", None) is not None:
+            try:
+                km_saida = float(db_viagem.transporte.km_saida)
+            except Exception:
+                km_saida = None
+            if km_saida is not None and km_chegada_f < km_saida:
+                return {"erro": "km_chegada inválido (deve ser maior ou igual ao km de saída)."}
+
+    args_validados = {"viagem_id": viagem_id, "km_chegada": km_chegada_f}
+    resumo = (
+        f"Finalizar viagem #{viagem_id} (registrar chegada)\n"
+        + (f"- KM chegada: {km_chegada_f}" if km_chegada_f is not None else "- KM chegada: (não informado)")
+    )
+    prop = proposals.criar_proposta(
+        usuario_id=int(usuario_logado.id),
+        ferramenta="finalizar_viagem",
+        args_validados=args_validados,
+        resumo_legivel=resumo,
+    )
+    return prop.to_dict()
+
+
 TOOL_DISPATCH_ESCRITA = {
     "criar_despesa": criar_despesa,
     "criar_atividade": criar_atividade,
+    "iniciar_atividade": iniciar_atividade,
+    "pausar_atividade": pausar_atividade,
+    "finalizar_pausa": finalizar_pausa,
+    "finalizar_viagem": finalizar_viagem,
 }
 
 

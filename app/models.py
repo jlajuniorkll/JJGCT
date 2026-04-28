@@ -136,6 +136,7 @@ class AppConfig(Base):
     __tablename__ = "app_config"
     id = Column(Integer, primary_key=True, index=True)
     expense_photo_required = Column(Boolean, default=False)
+    report_include_receipts = Column(Boolean, default=True)
     expense_description_options = Column(String, default='["Almoço","Janta","Lanche","Hospedagem","Taxi/Uber","Estacionamento","Pedágio","Combustível","Locação"]')
     activity_edit_delete_allowed_statuses = Column(String, default='["pendente"]')
     ia_provider = Column(String, default="anthropic")

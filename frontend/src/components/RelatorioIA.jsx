@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -53,9 +53,12 @@ const formatPeriodo = (periodo) => {
   return '';
 };
 
-const buildPrintHTML = ({ titulo, periodo, resumo, dados, totais }) => {
+const buildPrintHTML = ({ titulo, periodo, resumo, dados, totais, secoes }) => {
   const rows = Array.isArray(dados) ? dados : [];
   const cols = Array.from(new Set(rows.flatMap((r) => Object.keys(r || {}))));
+  const showResumo = !!secoes?.resumo;
+  const showTotais = !!secoes?.totais;
+  const showTabela = !!secoes?.tabela;
   const escapeHtml = (s) => String(s ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -69,7 +72,7 @@ const buildPrintHTML = ({ titulo, periodo, resumo, dados, totais }) => {
     return `<tr>${tds}</tr>`;
   }).join('');
 
-  const totaisLines = totais && typeof totais === 'object'
+  const totaisLines = showTotais && totais && typeof totais === 'object'
     ? Object.entries(totais).map(([k, v]) => `<div><b>${escapeHtml(k)}:</b> ${escapeHtml(v)}</div>`).join('')
     : '';
 
@@ -83,12 +86,12 @@ const buildPrintHTML = ({ titulo, periodo, resumo, dados, totais }) => {
   <body style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; color:#111; padding:24px;">
     <h1 style="margin:0 0 8px 0; font-size:20px;">${escapeHtml(titulo)}</h1>
     ${periodo ? `<div style="color:#555; margin-bottom:8px;">Período: ${escapeHtml(periodo)}</div>` : ''}
-    ${resumo ? `<div style="margin:8px 0 16px 0;">${escapeHtml(resumo)}</div>` : ''}
+    ${showResumo && resumo ? `<div style="margin:8px 0 16px 0;">${escapeHtml(resumo)}</div>` : ''}
     ${totaisLines ? `<div style="margin:8px 0 16px 0; padding:10px 12px; border:1px solid #eee; border-radius:10px;">${totaisLines}</div>` : ''}
-    <table style="border-collapse:collapse; width:100%; font-size:12px;">
+    ${showTabela ? `<table style="border-collapse:collapse; width:100%; font-size:12px;">
       <thead><tr>${tableHead}</tr></thead>
       <tbody>${tableBody}</tbody>
-    </table>
+    </table>` : ''}
   </body>
 </html>
   `.trim();
@@ -100,14 +103,26 @@ const RelatorioIA = ({ relatorio }) => {
   const grafico = String(safe.grafico_sugerido || 'tabela');
   const periodo = formatPeriodo(safe.periodo);
   const resumo = safe.resumo_textual ? String(safe.resumo_textual) : '';
-  const dados = Array.isArray(safe.dados) ? safe.dados : [];
+  const emptyRows = useMemo(() => [], []);
+  const dados = Array.isArray(safe.dados) ? safe.dados : emptyRows;
   const totais = safe.totais && typeof safe.totais === 'object' ? safe.totais : null;
 
-  const normalized = dados.map((d, idx) => ({
-    ...d,
-    label: d?.label ?? `Item ${idx + 1}`,
-    valor: Number.isFinite(Number(d?.valor)) ? Number(d.valor) : 0,
-  }));
+  const [secoes, setSecoes] = useState({ resumo: true, totais: true, grafico: true, tabela: true });
+  const toggleSecao = (k) => setSecoes((prev) => ({ ...prev, [k]: !prev?.[k] }));
+
+  const hasChart = useMemo(() => ['barra', 'pizza', 'linha'].includes(grafico), [grafico]);
+  const showChart = hasChart && secoes.grafico;
+  const showTable = (!hasChart || grafico === 'tabela') && secoes.tabela;
+  const showResumo = secoes.resumo && !!resumo;
+  const showTotais = secoes.totais && !!totais;
+
+  const normalized = useMemo(() => {
+    return dados.map((d, idx) => ({
+      ...d,
+      label: d?.label ?? `Item ${idx + 1}`,
+      valor: Number.isFinite(Number(d?.valor)) ? Number(d.valor) : 0,
+    }));
+  }, [dados]);
 
   return (
     <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
@@ -115,7 +130,7 @@ const RelatorioIA = ({ relatorio }) => {
         <div className="min-w-0">
           <p className="text-sm font-black text-gray-800">{titulo}</p>
           {periodo ? <p className="text-[11px] font-bold text-gray-500 truncate">Período: {periodo}</p> : null}
-          {resumo ? <p className="mt-2 text-xs font-medium text-gray-700 whitespace-pre-wrap">{resumo}</p> : null}
+          {showResumo ? <p className="mt-2 text-xs font-medium text-gray-700 whitespace-pre-wrap">{resumo}</p> : null}
         </div>
         <div className="flex flex-col gap-2">
           <button
@@ -135,7 +150,7 @@ const RelatorioIA = ({ relatorio }) => {
           <button
             type="button"
             onClick={() => {
-              const html = buildPrintHTML({ titulo, periodo, resumo, dados, totais });
+              const html = buildPrintHTML({ titulo, periodo, resumo, dados, totais, secoes: { resumo: secoes.resumo, totais: secoes.totais, tabela: secoes.tabela } });
               const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
               if (!w) return;
               w.document.open();
@@ -151,7 +166,28 @@ const RelatorioIA = ({ relatorio }) => {
         </div>
       </div>
 
-      {totais ? (
+      <div className="mt-3 flex flex-wrap gap-3 text-[11px] font-bold text-gray-600">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={!!secoes.resumo} onChange={() => toggleSecao('resumo')} />
+          Resumo
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={!!secoes.totais} onChange={() => toggleSecao('totais')} />
+          Totais
+        </label>
+        {hasChart ? (
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={!!secoes.grafico} onChange={() => toggleSecao('grafico')} />
+            Gráfico
+          </label>
+        ) : null}
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={!!secoes.tabela} onChange={() => toggleSecao('tabela')} />
+          Tabela
+        </label>
+      </div>
+
+      {showTotais ? (
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           {Object.entries(totais).map(([k, v]) => (
             <div key={k} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
@@ -163,7 +199,7 @@ const RelatorioIA = ({ relatorio }) => {
       ) : null}
 
       <div className="mt-4">
-        {grafico === 'barra' ? (
+        {grafico === 'barra' && showChart ? (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={normalized}>
@@ -177,7 +213,7 @@ const RelatorioIA = ({ relatorio }) => {
           </div>
         ) : null}
 
-        {grafico === 'linha' ? (
+        {grafico === 'linha' && showChart ? (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={normalized}>
@@ -191,7 +227,7 @@ const RelatorioIA = ({ relatorio }) => {
           </div>
         ) : null}
 
-        {grafico === 'pizza' ? (
+        {grafico === 'pizza' && showChart ? (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -206,7 +242,7 @@ const RelatorioIA = ({ relatorio }) => {
           </div>
         ) : null}
 
-        {grafico === 'tabela' || !['barra', 'pizza', 'linha'].includes(grafico) ? (
+        {showTable ? (
           <div className="overflow-auto rounded-2xl border border-gray-200">
             <table className="min-w-full text-xs">
               <thead className="bg-gray-50">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api, { tripService } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { 
   FileText, 
   ArrowLeft, 
@@ -19,6 +20,7 @@ import { ptBR } from 'date-fns/locale';
 const RelatorioViagem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { appConfig } = useAuth();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,6 +44,7 @@ const RelatorioViagem = () => {
   const { viagem, distancia_percorrida_km, total_horas_trabalhadas, total_despesas } = report;
   const clientes = viagem?.clientes || [];
   const clientesTexto = clientes.join(', ') || 'Viagem';
+  const includeReceipts = appConfig?.report_include_receipts !== false;
 
   const getComprovanteUrl = (path) => {
     if (!path) return null;
@@ -57,7 +60,7 @@ const RelatorioViagem = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in py-8 px-4 print:py-0 print:px-0">
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in py-8 px-4 print:py-0 print:px-0 print:max-w-none print:mx-0 print:space-y-0">
       <div className="flex items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(`/viagens/${id}`)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
@@ -72,15 +75,18 @@ const RelatorioViagem = () => {
           >
             <Printer size={18} /> Imprimir
           </button>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
+          <button
+            onClick={handlePrint}
+            className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+          >
             <Download size={18} /> PDF
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden print:shadow-none print:border-none">
+      <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden print:shadow-none print:border-none print:rounded-none">
         {/* Header Relatório */}
-        <div className="bg-gray-800 p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="bg-gray-800 p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6 print:flex-row print:items-start print:gap-4 print:p-5">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-blue-400 font-black uppercase tracking-widest text-xs">
               <Briefcase size={14} /> Viagem Corporativa
@@ -96,35 +102,35 @@ const RelatorioViagem = () => {
           </div>
         </div>
 
-        <div className="p-8 space-y-10">
+        <div className="p-8 space-y-10 print:p-5 print:space-y-6">
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-3">
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Distância</p>
               <p className="text-xl font-black text-gray-800">{distancia_percorrida_km} <span className="text-xs font-bold text-gray-400">KM</span></p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Horas Trab.</p>
               <p className="text-xl font-black text-gray-800">{total_horas_trabalhadas.split('.')[0]}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Despesas</p>
               <p className="text-xl font-black text-emerald-600">R$ {total_despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
               <p className="text-sm font-black text-blue-600 uppercase tracking-tight">{viagem.status.replace('_', ' ')}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 print:grid-cols-2 print:gap-6">
             {/* Itinerary */}
             <div className="space-y-4">
               <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
                 <Calendar size={16} className="text-blue-600" /> Período Real
               </h3>
-              <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-blue-100">
-                <div className="relative pl-8">
+              <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-blue-100 print:space-y-3">
+                <div className="relative pl-8 print:pl-7">
                   <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 border-4 border-white shadow-sm flex items-center justify-center z-10">
                     <div className="w-2 h-2 rounded-full bg-blue-600"></div>
                   </div>
@@ -135,7 +141,7 @@ const RelatorioViagem = () => {
                       : 'Não registrada'}
                   </p>
                 </div>
-                <div className="relative pl-8">
+                <div className="relative pl-8 print:pl-7">
                   <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-emerald-100 border-4 border-white shadow-sm flex items-center justify-center z-10">
                     <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
                   </div>
@@ -147,7 +153,7 @@ const RelatorioViagem = () => {
                   </p>
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Clientes</p>
                 <p className="text-sm font-bold text-gray-800">{clientes.join(', ') || '--'}</p>
               </div>
@@ -178,25 +184,25 @@ const RelatorioViagem = () => {
             <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
               <Car size={16} className="text-blue-600" /> Detalhamento de Transporte
             </h3>
-            <div className="bg-gray-50 rounded-3xl border border-gray-100 p-6">
+            <div className="bg-gray-50 rounded-3xl border border-gray-100 p-6 print:p-4 print:rounded-2xl">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="p-4 bg-white rounded-2xl border border-gray-100">
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Meio</p>
                   <p className="text-sm font-black text-gray-800 capitalize">{viagem.meio_transporte || '--'}</p>
                 </div>
 
-                <div className="p-4 bg-white rounded-2xl border border-gray-100 lg:col-span-2">
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 lg:col-span-2 print:p-3 print:rounded-xl">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Veículo</p>
                   <p className="text-sm font-black text-gray-800">{viagem.transporte?.veiculo?.modelo || '--'}</p>
                   <p className="text-xs font-bold text-gray-500">{viagem.transporte?.veiculo?.placa || '--'}</p>
                 </div>
 
-                <div className="p-4 bg-white rounded-2xl border border-gray-100">
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Motorista</p>
                   <p className="text-sm font-black text-gray-800">{viagem.transporte?.motorista?.nome || '--'}</p>
                 </div>
 
-                <div className="p-4 bg-white rounded-2xl border border-gray-100">
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 print:p-3 print:rounded-xl">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">KM Inicial</p>
@@ -221,19 +227,19 @@ const RelatorioViagem = () => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-400 font-bold uppercase text-[10px] tracking-widest">
                   <tr>
-                    <th className="px-6 py-4">Atividade</th>
-                    <th className="px-6 py-4 text-center">Início</th>
-                    <th className="px-6 py-4 text-center">Fim</th>
-                    <th className="px-6 py-4 text-right">Duração</th>
+                    <th className="px-6 py-4 print:px-3 print:py-2">Atividade</th>
+                    <th className="px-6 py-4 text-center print:px-3 print:py-2">Início</th>
+                    <th className="px-6 py-4 text-center print:px-3 print:py-2">Fim</th>
+                    <th className="px-6 py-4 text-right print:px-3 print:py-2">Duração</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {viagem.atividades?.map(atv => (
                     <tr key={atv.id}>
-                      <td className="px-6 py-4 font-bold text-gray-700">{atv.descricao}</td>
-                      <td className="px-6 py-4 text-center text-gray-500">{atv.inicio ? format(new Date(atv.inicio), 'HH:mm') : '--'}</td>
-                      <td className="px-6 py-4 text-center text-gray-500">{atv.fim ? format(new Date(atv.fim), 'HH:mm') : '--'}</td>
-                      <td className="px-6 py-4 text-right font-black text-gray-800">
+                      <td className="px-6 py-4 font-bold text-gray-700 print:px-3 print:py-2">{atv.descricao}</td>
+                      <td className="px-6 py-4 text-center text-gray-500 print:px-3 print:py-2">{atv.inicio ? format(new Date(atv.inicio), 'HH:mm') : '--'}</td>
+                      <td className="px-6 py-4 text-center text-gray-500 print:px-3 print:py-2">{atv.fim ? format(new Date(atv.fim), 'HH:mm') : '--'}</td>
+                      <td className="px-6 py-4 text-right font-black text-gray-800 print:px-3 print:py-2">
                         {atv.inicio && atv.fim 
                           ? formatTimeDiff(new Date(atv.inicio), new Date(atv.fim), atv.pausas)
                           : '--'}
@@ -254,17 +260,17 @@ const RelatorioViagem = () => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-400 font-bold uppercase text-[10px] tracking-widest">
                   <tr>
-                    <th className="px-6 py-4">Descrição</th>
-                    <th className="px-6 py-4">Pagamento</th>
-                    <th className="px-6 py-4 text-right">Valor</th>
+                    <th className="px-6 py-4 print:px-3 print:py-2">Descrição</th>
+                    <th className="px-6 py-4 print:px-3 print:py-2">Pagamento</th>
+                    <th className="px-6 py-4 text-right print:px-3 print:py-2">Valor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {viagem.despesas?.map(exp => (
                     <tr key={exp.id}>
-                      <td className="px-6 py-4 font-bold text-gray-700">{exp.descricao}</td>
-                      <td className="px-6 py-4 text-gray-500">{exp.forma_pagamento}</td>
-                      <td className="px-6 py-4 text-right font-black text-gray-800">
+                      <td className="px-6 py-4 font-bold text-gray-700 print:px-3 print:py-2">{exp.descricao}</td>
+                      <td className="px-6 py-4 text-gray-500 print:px-3 print:py-2">{exp.forma_pagamento}</td>
+                      <td className="px-6 py-4 text-right font-black text-gray-800 print:px-3 print:py-2">
                         R$ {exp.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
@@ -272,8 +278,8 @@ const RelatorioViagem = () => {
                 </tbody>
                 <tfoot className="bg-gray-50 font-black">
                   <tr>
-                    <td colSpan="2" className="px-6 py-4 text-gray-800 uppercase tracking-widest text-xs text-right">Total Consolidado</td>
-                    <td className="px-6 py-4 text-right text-emerald-600 text-lg">
+                    <td colSpan="2" className="px-6 py-4 text-gray-800 uppercase tracking-widest text-xs text-right print:px-3 print:py-2">Total Consolidado</td>
+                    <td className="px-6 py-4 text-right text-emerald-600 text-lg print:px-3 print:py-2 print:text-base">
                       R$ {total_despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -282,6 +288,7 @@ const RelatorioViagem = () => {
             </div>
           </div>
 
+          {includeReceipts ? (
           <div className="space-y-4">
             <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
               <FileText size={16} className="text-blue-600" /> Anexos de Despesas
@@ -339,15 +346,16 @@ const RelatorioViagem = () => {
               </p>
             )}
           </div>
+          ) : null}
         </div>
 
         {/* Footer print */}
-        <div className="hidden print:block p-8 border-t border-gray-100 text-center space-y-4">
-          <div className="grid grid-cols-2 gap-20 px-20 pt-10">
+        <div className="hidden print:block p-5 border-t border-gray-100 text-center space-y-4">
+          <div className="grid grid-cols-2 gap-10 px-8 pt-8">
             <div className="border-t border-gray-400 pt-2 text-xs font-bold text-gray-500 uppercase tracking-widest">Assinatura do Colaborador</div>
             <div className="border-t border-gray-400 pt-2 text-xs font-bold text-gray-500 uppercase tracking-widest">Assinatura Gestoria</div>
           </div>
-          <p className="text-[10px] text-gray-400 pt-10 font-medium italic">Documento gerado eletronicamente pelo sistema Corporate Travel.</p>
+          <p className="text-[10px] text-gray-400 pt-8 font-medium italic">Documento gerado eletronicamente pelo sistema Corporate Travel.</p>
         </div>
       </div>
     </div>

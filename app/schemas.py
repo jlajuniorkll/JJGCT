@@ -224,6 +224,7 @@ class RelatorioViagem(BaseModel):
 
 class AppConfig(BaseModel):
     expense_photo_required: bool
+    report_include_receipts: bool
     expense_description_options: List[str]
     activity_edit_delete_allowed_statuses: List[str]
     ia_provider: str
@@ -241,6 +242,7 @@ class AppConfig(BaseModel):
 
 class AppConfigUpdate(BaseModel):
     expense_photo_required: Optional[bool] = None
+    report_include_receipts: Optional[bool] = None
     expense_description_options: Optional[List[str]] = None
     activity_edit_delete_allowed_statuses: Optional[List[str]] = None
     ia_provider: Optional[str] = None

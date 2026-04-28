@@ -73,6 +73,21 @@ TOOLS_LEITURA = [
         "cache_control": {"type": "ephemeral"},
     },
     {
+        "name": "buscar_atividades",
+        "description": "Busca atividades por título/descrição (somente leitura). Use quando o usuário citar o nome da atividade mas não souber o ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Texto para buscar na descrição da atividade (parcial)."},
+                "viagem_id": {"type": "integer", "description": "ID da viagem para limitar a busca (recomendado)."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "Máximo de itens a retornar."},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+        "cache_control": {"type": "ephemeral"},
+    },
+    {
         "name": "buscar_categorias_despesa",
         "description": "Retorna as categorias de despesa permitidas configuradas no sistema (AppConfig).",
         "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},

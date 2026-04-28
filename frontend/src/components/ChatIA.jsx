@@ -18,6 +18,10 @@ const toBase64 = (file) => new Promise((resolve, reject) => {
 const friendlyActionName = (toolName) => {
   if (toolName === 'criar_despesa') return 'Criar despesa';
   if (toolName === 'criar_atividade') return 'Criar atividade';
+  if (toolName === 'iniciar_atividade') return 'Iniciar atividade';
+  if (toolName === 'pausar_atividade') return 'Pausar atividade';
+  if (toolName === 'finalizar_pausa') return 'Retomar atividade';
+  if (toolName === 'finalizar_viagem') return 'Finalizar viagem';
   return 'Ação pendente';
 };
 
@@ -215,7 +219,7 @@ const ChatIA = () => {
   };
 
   return (
-    <>
+    <div className="print:hidden">
       {open ? (
         <button
           type="button"
@@ -455,7 +459,7 @@ const ChatIA = () => {
           <Sparkles size={22} />
         </button>
       ) : null}
-    </>
+    </div>
   );
 };
 

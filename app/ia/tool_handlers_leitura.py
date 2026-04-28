@@ -263,6 +263,57 @@ def listar_despesas(db: Session, usuario_logado: models.Usuario, args: dict):
     return [_sanitize_despesa(d) for d in despesas]
 
 
+def buscar_atividades(db: Session, usuario_logado: models.Usuario, args: dict):
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return {"erro": "Informe query."}
+
+    viagem_id = args.get("viagem_id")
+    limit = args.get("limit", 20)
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 20
+    limit = max(1, min(limit, 50))
+
+    viagem_ids: list[int] | None = None
+    if viagem_id is not None:
+        try:
+            viagem_id = int(viagem_id)
+        except Exception:
+            return {"erro": "viagem_id inválido."}
+        if not _user_can_view_viagem(db, usuario_logado, viagem_id):
+            return {"erro": "Você não tem permissão para isso."}
+        viagem_ids = [viagem_id]
+    else:
+        if not _user_can_view_all_trips(db, usuario_logado):
+            uid = int(usuario_logado.id)
+            viagem_ids = [v.id for v in crud.get_viagens_for_user(db, user_id=uid, limit=500)]
+
+    needle = f"%{query}%"
+    q = db.query(models.Atividade).filter(models.Atividade.descricao.ilike(needle))
+    if viagem_ids is not None:
+        if not viagem_ids:
+            return []
+        q = q.filter(models.Atividade.viagem_id.in_(viagem_ids))
+
+    atividades = (
+        q.order_by(models.Atividade.viagem_id.asc(), models.Atividade.ordem.asc(), models.Atividade.id.asc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": int(a.id),
+            "viagem_id": int(a.viagem_id),
+            "descricao": str(a.descricao),
+            "status": str(a.status),
+            "ordem": int(a.ordem) if getattr(a, "ordem", None) is not None else None,
+        }
+        for a in atividades
+    ]
+
+
 def buscar_categorias_despesa(db: Session, usuario_logado: models.Usuario, args: dict):
     cfg = crud.get_app_config(db)
     raw = getattr(cfg, "expense_description_options", None) or "[]"
@@ -381,6 +432,7 @@ TOOL_DISPATCH = {
     "listar_viagens": listar_viagens,
     "obter_viagem_detalhes": obter_viagem_detalhes,
     "listar_despesas": listar_despesas,
+    "buscar_atividades": buscar_atividades,
     "buscar_categorias_despesa": buscar_categorias_despesa,
     "consultar_metrica": consultar_metrica,
     "gerar_relatorio": gerar_relatorio,

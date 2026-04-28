@@ -21,7 +21,7 @@ ALL_TOOLS = list(TOOLS_LEITURA or []) + list(TOOLS_ESCRITA or [])
 
 
 def _dispatch_tool(db: Session, usuario_logado: models.Usuario, tool_name: str, tool_args: dict):
-    if tool_name in {"criar_despesa", "criar_atividade"}:
+    if tool_name in {"criar_despesa", "criar_atividade", "iniciar_atividade", "pausar_atividade", "finalizar_pausa", "finalizar_viagem"}:
         return dispatch_tool_escrita(db, usuario_logado, tool_name, tool_args)
     return dispatch_tool_leitura(db, usuario_logado, tool_name, tool_args)
 

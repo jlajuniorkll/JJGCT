@@ -679,6 +679,161 @@ def confirmar_acao_ia(
             },
         }
 
+    if ferramenta == "iniciar_atividade":
+        atividade_id = args.get("atividade_id")
+        try:
+            atividade_id = int(atividade_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="atividade_id inválido.")
+
+        atividade = crud.get_atividade(db, atividade_id)
+        if not atividade:
+            raise HTTPException(status_code=404, detail="Atividade não encontrada.")
+        if int(getattr(atividade, "viagem_id", 0) or 0) != viagem_id:
+            raise HTTPException(status_code=400, detail="Atividade não pertence a esta viagem.")
+
+        status = str(getattr(atividade, "status", "") or "")
+        if status == "finalizada":
+            raise HTTPException(status_code=400, detail="Atividade já está finalizada.")
+        if status != "pendente":
+            raise HTTPException(status_code=400, detail="Atividade não está pendente para iniciar.")
+
+        updated = crud.iniciar_atividade(db, atividade_id)
+        proposals.cancelar_proposta(usuario_id=int(user.id), id_proposta=str(payload.id_proposta))
+        return {
+            "sucesso": True,
+            "registro_criado": {
+                "tipo": "atividade_iniciada",
+                "id": int(updated.id),
+                "viagem_id": int(updated.viagem_id),
+                "status": str(updated.status),
+                "inicio": updated.inicio.isoformat() if getattr(updated, "inicio", None) else None,
+            },
+        }
+
+    if ferramenta == "pausar_atividade":
+        atividade_id = args.get("atividade_id")
+        motivo = str(args.get("motivo") or "").strip()
+        if not motivo:
+            raise HTTPException(status_code=400, detail="motivo inválido.")
+        try:
+            atividade_id = int(atividade_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="atividade_id inválido.")
+
+        atividade = crud.get_atividade(db, atividade_id)
+        if not atividade:
+            raise HTTPException(status_code=404, detail="Atividade não encontrada.")
+        if int(getattr(atividade, "viagem_id", 0) or 0) != viagem_id:
+            raise HTTPException(status_code=400, detail="Atividade não pertence a esta viagem.")
+
+        status = str(getattr(atividade, "status", "") or "")
+        if status != "ativa":
+            raise HTTPException(status_code=400, detail="Atividade não está ativa para pausar.")
+
+        open_pause = (
+            db.query(models.Pausa)
+            .filter(models.Pausa.atividade_id == atividade_id)
+            .filter(models.Pausa.fim.is_(None))
+            .first()
+        )
+        if open_pause:
+            raise HTTPException(status_code=400, detail="Já existe uma pausa em aberto para esta atividade.")
+
+        pausa = crud.create_pausa(db, pausa=schemas.PausaCreate(motivo=motivo), atividade_id=atividade_id)
+        proposals.cancelar_proposta(usuario_id=int(user.id), id_proposta=str(payload.id_proposta))
+        return {
+            "sucesso": True,
+            "registro_criado": {
+                "tipo": "pausa",
+                "id": int(pausa.id),
+                "viagem_id": int(viagem_id),
+                "atividade_id": int(pausa.atividade_id),
+                "motivo": str(pausa.motivo),
+                "inicio": pausa.inicio.isoformat() if getattr(pausa, "inicio", None) else None,
+            },
+        }
+
+    if ferramenta == "finalizar_pausa":
+        pausa_id = args.get("pausa_id")
+        try:
+            pausa_id = int(pausa_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="pausa_id inválido.")
+
+        pausa = db.query(models.Pausa).filter(models.Pausa.id == pausa_id).first()
+        if not pausa:
+            raise HTTPException(status_code=404, detail="Pausa não encontrada.")
+
+        atividade = crud.get_atividade(db, int(getattr(pausa, "atividade_id", 0) or 0))
+        if not atividade:
+            raise HTTPException(status_code=404, detail="Atividade da pausa não encontrada.")
+        if int(getattr(atividade, "viagem_id", 0) or 0) != viagem_id:
+            raise HTTPException(status_code=400, detail="Pausa não pertence a esta viagem.")
+
+        if getattr(pausa, "fim", None) is not None:
+            raise HTTPException(status_code=400, detail="Pausa já está finalizada.")
+
+        updated = crud.finalizar_pausa(db, pausa_id)
+        proposals.cancelar_proposta(usuario_id=int(user.id), id_proposta=str(payload.id_proposta))
+        return {
+            "sucesso": True,
+            "registro_criado": {
+                "tipo": "pausa_finalizada",
+                "id": int(updated.id),
+                "viagem_id": int(viagem_id),
+                "atividade_id": int(updated.atividade_id),
+                "fim": updated.fim.isoformat() if getattr(updated, "fim", None) else None,
+            },
+        }
+
+    if ferramenta == "finalizar_viagem":
+        if str(getattr(db_viagem, "status", "") or "") != "em_andamento":
+            raise HTTPException(status_code=400, detail="A chegada só pode ser registrada para viagens em andamento")
+
+        for atividade in getattr(db_viagem, "atividades", []) or []:
+            if str(getattr(atividade, "status", "") or "") != "finalizada":
+                raise HTTPException(status_code=400, detail=f"A atividade '{atividade.descricao}' ainda não foi finalizada.")
+
+        km_chegada = args.get("km_chegada")
+        if str(getattr(db_viagem, "meio_transporte", "") or "") in {"carro empresa", "carro próprio"}:
+            if km_chegada is None:
+                raise HTTPException(status_code=400, detail="KM de chegada é obrigatório para este meio de transporte.")
+
+        km_chegada_f = None
+        if km_chegada is not None:
+            try:
+                km_chegada_f = float(km_chegada)
+            except Exception:
+                raise HTTPException(status_code=400, detail="km_chegada inválido.")
+            if km_chegada_f <= 0:
+                raise HTTPException(status_code=400, detail="km_chegada inválido.")
+
+            if getattr(db_viagem, "transporte", None) and getattr(db_viagem.transporte, "km_saida", None) is not None:
+                try:
+                    km_saida = float(db_viagem.transporte.km_saida)
+                except Exception:
+                    km_saida = None
+                if km_saida is not None and km_chegada_f < km_saida:
+                    raise HTTPException(status_code=400, detail="km_chegada inválido (deve ser maior ou igual ao km de saída).")
+
+        updated = crud.registrar_chegada_real(db, viagem_id=viagem_id, km_chegada=km_chegada_f)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Viagem não encontrada.")
+
+        proposals.cancelar_proposta(usuario_id=int(user.id), id_proposta=str(payload.id_proposta))
+        return {
+            "sucesso": True,
+            "registro_criado": {
+                "tipo": "viagem_finalizada",
+                "id": int(updated.id),
+                "viagem_id": int(updated.id),
+                "status": str(updated.status),
+                "data_hora_real_chegada": updated.data_hora_real_chegada.isoformat() if getattr(updated, "data_hora_real_chegada", None) else None,
+                "km_chegada": float(getattr(getattr(updated, "transporte", None), "km_chegada", 0.0) or 0.0) if getattr(updated, "transporte", None) else None,
+            },
+        }
+
     raise HTTPException(status_code=400, detail="Ferramenta inválida na proposta.")
 
 

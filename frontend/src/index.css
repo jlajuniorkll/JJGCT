@@ -59,6 +59,11 @@
 
 /* Print styles */
 @media print {
-  body { background: white; }
+  @page { margin: 12mm; }
+  html, body { background: white; }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .no-print { display: none; }
 }
