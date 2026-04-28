@@ -1,11 +1,13 @@
+from . import config_env
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from . import models, crud, schemas
 from .database import engine, SessionLocal
-from .api.endpoints import usuarios, veiculos, viagens, despesas, atividades, auth, config
+from .api.endpoints import usuarios, veiculos, viagens, despesas, atividades, auth, config, ia
 
 models.Base.metadata.create_all(bind=engine)
+crud.ensure_app_config_schema(engine)
 
 app = FastAPI(    
     title="Sistema de Viagens",
@@ -29,6 +31,7 @@ app.include_router(despesas.router, prefix="/api/despesas", tags=["despesas"])
 app.include_router(atividades.router, prefix="/api/atividades", tags=["atividades"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
+app.include_router(ia.router, prefix="/api/ia", tags=["ia"])
 
 
 @app.on_event("startup")

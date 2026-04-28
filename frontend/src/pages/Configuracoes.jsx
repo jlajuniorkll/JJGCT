@@ -42,6 +42,16 @@ const Configuracoes = () => {
   const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
   const [tripsShowAllAdmin, setTripsShowAllAdmin] = useState(true);
   const [tripsShowAllColaborador, setTripsShowAllColaborador] = useState(true);
+  const [iaProvider, setIaProvider] = useState('anthropic');
+  const [iaModelAnthropic, setIaModelAnthropic] = useState('claude-sonnet-4-6');
+  const [iaModelGemini, setIaModelGemini] = useState('gemini-2.5-flash');
+  const [anthropicApiKeyConfigured, setAnthropicApiKeyConfigured] = useState(false);
+  const [anthropicApiKeyMasked, setAnthropicApiKeyMasked] = useState('');
+  const [geminiApiKeyConfigured, setGeminiApiKeyConfigured] = useState(false);
+  const [geminiApiKeyMasked, setGeminiApiKeyMasked] = useState('');
+  const [anthropicApiKeyInput, setAnthropicApiKeyInput] = useState('');
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState('');
+  const [iaTesting, setIaTesting] = useState(false);
 
   const isAdmin = user?.tipousuario === 'admin';
 
@@ -83,6 +93,18 @@ const Configuracoes = () => {
       );
       setTripsShowAllAdmin(data.trips_show_all_admin !== false);
       setTripsShowAllColaborador(data.trips_show_all_colaborador !== false);
+      setIaProvider(String(data.ia_provider || 'anthropic'));
+      setIaModelAnthropic(String(data.ia_model_anthropic || 'claude-sonnet-4-6'));
+      setIaModelGemini(String(data.ia_model_gemini || 'gemini-2.5-flash'));
+      setAnthropicApiKeyConfigured(!!data.anthropic_api_key_configured);
+      setAnthropicApiKeyMasked(String(data.anthropic_api_key_masked || ''));
+      setGeminiApiKeyConfigured(!!data.gemini_api_key_configured);
+      setGeminiApiKeyMasked(String(data.gemini_api_key_masked || ''));
+      if (!!data.anthropic_api_key_configured && !data.gemini_api_key_configured) {
+        setIaProvider('anthropic');
+      } else if (!!data.gemini_api_key_configured && !data.anthropic_api_key_configured) {
+        setIaProvider('gemini');
+      }
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.detail || 'Erro ao carregar configurações');
@@ -124,11 +146,19 @@ const Configuracoes = () => {
         expense_photo_required: expensePhotoRequired,
         expense_description_options: expenseDescriptionOptions,
         activity_edit_delete_allowed_statuses: activityEditDeleteAllowedStatuses,
+        ia_provider: iaProvider,
+        ia_model_anthropic: iaModelAnthropic,
+        ia_model_gemini: iaModelGemini,
+        anthropic_api_key: anthropicApiKeyInput.trim() ? anthropicApiKeyInput.trim() : undefined,
+        gemini_api_key: geminiApiKeyInput.trim() ? geminiApiKeyInput.trim() : undefined,
         trip_edit_blocked_statuses: blockedStatuses,
         trip_activity_expense_allowed_statuses: activityExpenseAllowedStatuses,
         trips_show_all_admin: tripsShowAllAdmin,
         trips_show_all_colaborador: tripsShowAllColaborador,
       });
+      setAnthropicApiKeyInput('');
+      setGeminiApiKeyInput('');
+      await fetchConfig();
       alert('Configurações salvas');
     } catch (err) {
       console.error(err);
@@ -220,6 +250,108 @@ const Configuracoes = () => {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">IA</h2>
+            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-2">
+              <p className="text-sm font-black text-gray-800">Provedor</p>
+              <p className="text-xs font-bold text-gray-500">
+                Define o provedor padrão para as funcionalidades de IA do sistema.
+              </p>
+              <select
+                value={iaProvider}
+                onChange={(e) => setIaProvider(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              >
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+              <div className="pt-2">
+                {iaProvider === 'anthropic' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-black text-gray-800">Anthropic</p>
+                    <input
+                      type="password"
+                      value={anthropicApiKeyInput}
+                      onChange={(e) => setAnthropicApiKeyInput(e.target.value)}
+                      placeholder={anthropicApiKeyConfigured ? anthropicApiKeyMasked || 'Configurada' : 'Cole a chave'}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    />
+                    <input
+                      type="text"
+                      value={iaModelAnthropic}
+                      onChange={(e) => setIaModelAnthropic(e.target.value)}
+                      placeholder="claude-sonnet-4-6"
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    />
+                    <p className="text-xs font-bold text-gray-500">
+                      {anthropicApiKeyConfigured
+                        ? `Chave configurada (${anthropicApiKeyMasked || '****'})`
+                        : 'Chave não configurada'}
+                    </p>
+                  </div>
+                ) : null}
+                {iaProvider === 'gemini' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-black text-gray-800">Gemini</p>
+                    <input
+                      type="password"
+                      value={geminiApiKeyInput}
+                      onChange={(e) => setGeminiApiKeyInput(e.target.value)}
+                      placeholder={geminiApiKeyConfigured ? geminiApiKeyMasked || 'Configurada' : 'Cole a chave'}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    />
+                    <input
+                      type="text"
+                      value={iaModelGemini}
+                      onChange={(e) => setIaModelGemini(e.target.value)}
+                      placeholder="gemini-2.5-flash"
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    />
+                    <p className="text-xs font-bold text-gray-500">
+                      {geminiApiKeyConfigured ? `Chave configurada (${geminiApiKeyMasked || '****'})` : 'Chave não configurada'}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                disabled={iaTesting}
+                onClick={async () => {
+                  setIaTesting(true);
+                  try {
+                    const provider = iaProvider === 'gemini' ? 'gemini' : 'anthropic';
+                    const model = provider === 'gemini' ? iaModelGemini : iaModelAnthropic;
+                    const typedKey = provider === 'gemini' ? geminiApiKeyInput : anthropicApiKeyInput;
+                    const hasConfigured = provider === 'gemini' ? geminiApiKeyConfigured : anthropicApiKeyConfigured;
+                    const payload = {
+                      provider,
+                      model,
+                    };
+                    if (String(typedKey || '').trim()) {
+                      payload.api_key = String(typedKey || '').trim();
+                    } else if (!hasConfigured) {
+                      alert('Cole a chave (ou salve uma chave configurada) antes de testar.');
+                      return;
+                    }
+
+                    const res = await configService.testIA(payload);
+                    const ok = !!res.data?.ok;
+                    const detail = res.data?.detail || (ok ? 'Conexão OK' : 'Falha no teste');
+                    const usedProvider = res.data?.provider ? String(res.data.provider) : null;
+                    alert(usedProvider ? `${detail} (${usedProvider})` : detail);
+                  } catch (err) {
+                    alert(err?.response?.data?.detail || 'Falha ao testar conexão');
+                  } finally {
+                    setIaTesting(false);
+                  }
+                }}
+                className="w-full mt-2 bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+              >
+                {iaTesting ? 'Testando…' : 'Testar conexão'}
+              </button>
             </div>
           </div>
 

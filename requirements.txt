@@ -4,3 +4,8 @@ sqlalchemy
 pydantic
 python-multipart
 psycopg[binary]
+anthropic
+python-dotenv
+Pillow
+cryptography
+pytest

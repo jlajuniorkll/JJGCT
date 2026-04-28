@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 
 # Schemas para Usuário
@@ -226,6 +226,13 @@ class AppConfig(BaseModel):
     expense_photo_required: bool
     expense_description_options: List[str]
     activity_edit_delete_allowed_statuses: List[str]
+    ia_provider: str
+    ia_model_anthropic: str
+    ia_model_gemini: str
+    anthropic_api_key_configured: bool
+    anthropic_api_key_masked: Optional[str] = None
+    gemini_api_key_configured: bool
+    gemini_api_key_masked: Optional[str] = None
     trip_edit_blocked_statuses: List[str]
     trip_activity_expense_allowed_statuses: List[str]
     trips_show_all_admin: bool
@@ -236,7 +243,120 @@ class AppConfigUpdate(BaseModel):
     expense_photo_required: Optional[bool] = None
     expense_description_options: Optional[List[str]] = None
     activity_edit_delete_allowed_statuses: Optional[List[str]] = None
+    ia_provider: Optional[str] = None
+    ia_model_anthropic: Optional[str] = None
+    ia_model_gemini: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     trip_edit_blocked_statuses: Optional[List[str]] = None
     trip_activity_expense_allowed_statuses: Optional[List[str]] = None
     trips_show_all_admin: Optional[bool] = None
     trips_show_all_colaborador: Optional[bool] = None
+
+
+class ChatHistoricoItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatAnexo(BaseModel):
+    nome: str
+    base64: str
+    mime: str
+
+
+class ChatContexto(BaseModel):
+    viagem_id: Optional[int] = None
+
+
+class ChatRequest(BaseModel):
+    historico: List[ChatHistoricoItem] = []
+    mensagem: str
+    anexos: Optional[List[ChatAnexo]] = None
+    contexto: Optional[ChatContexto] = None
+
+
+class ChatFerramentaChamada(BaseModel):
+    nome: str
+    args: Dict[str, Any]
+    resultado_resumo: str
+
+
+class ChatTokensConsumidos(BaseModel):
+    input: int
+    output: int
+    cache_read: Optional[int] = None
+
+
+class ProposalPendente(BaseModel):
+    id_proposta: str
+    usuario_id: int
+    ferramenta: str
+    args_validados: Dict[str, Any]
+    resumo_legivel: str
+    criado_em: datetime
+
+
+class IAConfirmarAcaoRequest(BaseModel):
+    id_proposta: str
+
+
+class IACancelarAcaoRequest(BaseModel):
+    id_proposta: str
+
+
+class IAConfirmarAcaoResponse(BaseModel):
+    sucesso: bool
+    registro_criado: Optional[Dict[str, Any]] = None
+
+
+class IACancelarAcaoResponse(BaseModel):
+    sucesso: bool
+
+
+class ChatResponse(BaseModel):
+    mensagem: str
+    ferramentas_chamadas: List[ChatFerramentaChamada] = []
+    acoes_pendentes: Optional[List[ProposalPendente]] = None
+    relatorios: Optional[List[Dict[str, Any]]] = None
+    tokens_consumidos: ChatTokensConsumidos
+
+
+class IAMetricaCount(BaseModel):
+    nome: str
+    count: int
+
+
+class IAMetricasResponse(BaseModel):
+    total_chamadas: int
+    total_tokens: int
+    custo_total_usd: float
+    ferramentas_top: List[IAMetricaCount] = []
+    usuarios_top: List[IAMetricaCount] = []
+    taxa_sucesso: float
+    latencia_p50: Optional[int] = None
+    latencia_p95: Optional[int] = None
+
+
+class IALogResumo(BaseModel):
+    id: int
+    criado_em: datetime
+    tipo: str
+    usuario_id: Optional[int] = None
+    usuario_nome: Optional[str] = None
+    mensagem_resumo: Optional[str] = None
+    ferramentas_chamadas: List[Dict[str, Any]] = []
+    tokens_input: int = 0
+    tokens_output: int = 0
+    tokens_cache_read: int = 0
+    custo_estimado_usd: float = 0.0
+    latencia_ms: int = 0
+    sucesso: bool
+    erro: Optional[str] = None
+
+
+class IALogsResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: List[IALogResumo] = []

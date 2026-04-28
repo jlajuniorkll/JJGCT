@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import ChatIA from './ChatIA';
 import { 
   Home, 
   MapPin, 
@@ -12,7 +13,8 @@ import {
   Clock,
   DollarSign,
   FileText,
-  Settings
+  Settings,
+  Sparkles
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -31,6 +33,7 @@ const Layout = ({ children }) => {
     { name: 'Viagens', icon: MapPin, path: '/viagens' },
     { name: 'Usuários', icon: Users, path: '/admin/usuarios', adminOnly: true },
     { name: 'Veículos', icon: Car, path: '/admin/veiculos', adminOnly: true },
+    { name: 'IA', icon: Sparkles, path: '/admin/ia', adminOnly: true },
     { name: 'Configurações', icon: Settings, path: '/admin/configuracoes', adminOnly: true },
   ];
 
@@ -101,6 +104,8 @@ const Layout = ({ children }) => {
       <main className="flex-1 p-4 md:p-8 overflow-auto">
         {children}
       </main>
+
+      <ChatIA />
     </div>
   );
 };

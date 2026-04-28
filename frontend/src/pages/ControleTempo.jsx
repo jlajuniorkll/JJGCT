@@ -52,6 +52,17 @@ const ControleTempo = () => {
   }, [fetchTrip]);
 
   useEffect(() => {
+    const onIAConfirmed = (e) => {
+      const vid = e?.detail?.viagem_id;
+      if (!vid) return;
+      if (String(vid) !== String(id)) return;
+      fetchTrip();
+    };
+    window.addEventListener('jjg_viagem:ia_acao_confirmada', onIAConfirmed);
+    return () => window.removeEventListener('jjg_viagem:ia_acao_confirmada', onIAConfirmed);
+  }, [id, fetchTrip]);
+
+  useEffect(() => {
     const fetchConfig = async () => {
       try {
         const res = await configService.get();

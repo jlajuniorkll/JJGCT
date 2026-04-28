@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api, { expenseService, configService } from '../services/api';
+import api, { expenseService, configService, iaService } from '../services/api';
 import { 
   DollarSign, 
   ArrowLeft, 
@@ -9,7 +9,8 @@ import {
   X,
   CreditCard,
   FileText,
-  CheckCircle
+  CheckCircle,
+  Sparkles
 } from 'lucide-react';
 
 const RegistroDespesa = () => {
@@ -20,6 +21,7 @@ const RegistroDespesa = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
+  const [iaAvailable, setIaAvailable] = useState(false);
   const [expenseDescriptionOptions, setExpenseDescriptionOptions] = useState([
     'Almoço',
     'Janta',
@@ -31,6 +33,10 @@ const RegistroDespesa = () => {
     'Combustível',
     'Locação',
   ]);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaBannerActive, setIaBannerActive] = useState(false);
+  const [iaLowConfidence, setIaLowConfidence] = useState({});
+  const [iaToast, setIaToast] = useState('');
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -139,6 +145,7 @@ const RegistroDespesa = () => {
       try {
         const res = await configService.get();
         setExpensePhotoRequired(!!res.data?.expense_photo_required);
+        setIaAvailable(!!res.data?.anthropic_api_key_configured || !!res.data?.gemini_api_key_configured);
         setExpenseDescriptionOptions(
           Array.isArray(res.data?.expense_description_options) && res.data.expense_description_options.length
             ? res.data.expense_description_options
@@ -210,6 +217,16 @@ const RegistroDespesa = () => {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl shadow-emerald-100 border border-gray-100 overflow-hidden">
         <div className="p-8 space-y-8">
+          {iaToast ? (
+            <div className="bg-orange-50 border border-orange-100 text-orange-800 px-4 py-3 rounded-2xl text-sm font-bold">
+              {iaToast}
+            </div>
+          ) : null}
+          {iaBannerActive ? (
+            <div className="bg-blue-50 border border-blue-100 text-blue-800 px-4 py-3 rounded-2xl text-sm font-bold">
+              Dados extraídos pela IA — confira antes de salvar.
+            </div>
+          ) : null}
           {/* Amount Input */}
           <div className="text-center space-y-2">
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">Valor da Despesa</label>
@@ -221,9 +238,14 @@ const RegistroDespesa = () => {
                 step="0.01"
                 required
                 placeholder="0,00"
-                className="pl-12 pr-4 py-2 text-5xl font-black text-gray-800 outline-none w-full max-w-[250px] bg-transparent border-b-4 border-gray-100 focus:border-emerald-500 transition-colors text-center"
+                title={iaLowConfidence.valor < 0.7 ? 'Verifique este campo' : undefined}
+                className={`pl-12 pr-4 py-2 text-5xl font-black text-gray-800 outline-none w-full max-w-[250px] bg-transparent border-b-4 focus:border-emerald-500 transition-colors text-center ${iaLowConfidence.valor < 0.7 ? 'border-yellow-300' : 'border-gray-100'}`}
                 value={formData.valor}
-                onChange={(e) => setFormData({...formData, valor: e.target.value})}
+                onChange={(e) => {
+                  setIaBannerActive(false);
+                  setIaLowConfidence((prev) => ({ ...prev, valor: 1 }));
+                  setFormData({...formData, valor: e.target.value});
+                }}
               />
             </div>
           </div>
@@ -235,9 +257,14 @@ const RegistroDespesa = () => {
                   <CreditCard size={18} className="text-blue-500" /> Forma de Pagamento
                 </label>
                 <select 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  title={iaLowConfidence.forma_pagamento < 0.7 ? 'Verifique este campo' : undefined}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium ${iaLowConfidence.forma_pagamento < 0.7 ? 'border-yellow-300' : 'border-gray-200'}`}
                   value={formData.forma_pagamento}
-                  onChange={(e) => setFormData({...formData, forma_pagamento: e.target.value})}
+                  onChange={(e) => {
+                    setIaBannerActive(false);
+                    setIaLowConfidence((prev) => ({ ...prev, forma_pagamento: 1 }));
+                    setFormData({...formData, forma_pagamento: e.target.value});
+                  }}
                 >
                   <option>Cartão Corporativo</option>
                   <option>Dinheiro / Reembolso</option>
@@ -254,9 +281,14 @@ const RegistroDespesa = () => {
                   type="text"
                   list="expense-desc-options"
                   placeholder="Ex: Almoço, Estacionamento, Combustível..."
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  title={iaLowConfidence.descricao < 0.7 ? 'Verifique este campo' : undefined}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium ${iaLowConfidence.descricao < 0.7 ? 'border-yellow-300' : 'border-gray-200'}`}
                   value={formData.descricao}
-                  onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                  onChange={(e) => {
+                    setIaBannerActive(false);
+                    setIaLowConfidence((prev) => ({ ...prev, descricao: 1 }));
+                    setFormData({...formData, descricao: e.target.value});
+                  }}
                 />
                 <datalist id="expense-desc-options">
                   {expenseDescriptionOptions.map((opt) => (
@@ -264,6 +296,85 @@ const RegistroDespesa = () => {
                   ))}
                 </datalist>
               </div>
+
+              {iaAvailable ? (
+                <button
+                  type="button"
+                  disabled={!file || iaLoading || optimizing}
+                  onClick={async () => {
+                    if (!file) return;
+                    setIaToast('');
+                    setIaLoading(true);
+                    try {
+                      const res = await iaService.extrairComprovante(file);
+                      const data = res.data || {};
+
+                      const extractedValor = data.valor;
+                      const extractedDescricao = data.descricao;
+                      const extractedForma = data.forma_pagamento;
+                      const hasAnyExtracted =
+                        extractedValor !== null && extractedValor !== undefined ||
+                        extractedDescricao !== null && extractedDescricao !== undefined ||
+                        extractedForma !== null && extractedForma !== undefined;
+                      if (!hasAnyExtracted) {
+                        setIaToast('A IA não conseguiu extrair os campos desse comprovante. Preencha manualmente.');
+                        setTimeout(() => setIaToast(''), 6000);
+                        setIaLoading(false);
+                        return;
+                      }
+                      const confianca = data.confianca || {};
+                      const formaMap = {
+                        DINHEIRO: 'Dinheiro / Reembolso',
+                        CARTAO_CREDITO: 'Cartão Corporativo',
+                        CARTAO_DEBITO: 'Cartão Corporativo',
+                        PIX: 'Dinheiro / Reembolso',
+                        OUTRO: 'Faturado Empresa',
+                      };
+                      const uiForma = extractedForma ? (formaMap[String(extractedForma)] || null) : null;
+
+                      const currentHasAny =
+                        String(formData.valor || '').trim() !== '' ||
+                        String(formData.descricao || '').trim() !== '' ||
+                        String(formData.forma_pagamento || '').trim() !== '';
+
+                      if (currentHasAny) {
+                        const ok = window.confirm('Preencher com dados do comprovante e sobrescrever os campos atuais?');
+                        if (!ok) {
+                          setIaLoading(false);
+                          return;
+                        }
+                      }
+
+                      setFormData((prev) => ({
+                        ...prev,
+                        valor: extractedValor === null || extractedValor === undefined ? prev.valor : String(extractedValor),
+                        descricao: extractedDescricao === null || extractedDescricao === undefined ? prev.descricao : String(extractedDescricao),
+                        forma_pagamento: uiForma === null || uiForma === undefined ? prev.forma_pagamento : String(uiForma),
+                      }));
+                      setIaLowConfidence({
+                        valor: Number(confianca.valor ?? 0),
+                        descricao: Number(confianca.descricao ?? 0),
+                        forma_pagamento: Number(confianca.forma_pagamento ?? 0),
+                      });
+                      setIaBannerActive(true);
+                      if (Array.isArray(data.avisos) && data.avisos.length) {
+                        setIaToast(data.avisos.join(' '));
+                        setTimeout(() => setIaToast(''), 6000);
+                      }
+                    } catch (err) {
+                      console.error(err);
+                      const detail = err?.response?.data?.detail;
+                      setIaToast(detail ? String(detail) : 'Não foi possível ler o comprovante, preencha manualmente');
+                      setTimeout(() => setIaToast(''), 6000);
+                    } finally {
+                      setIaLoading(false);
+                    }
+                  }}
+                  className="w-full bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+                >
+                  <Sparkles size={18} /> {iaLoading ? 'Extraindo com IA…' : 'Extrair com IA'}
+                </button>
+              ) : null}
             </div>
 
             {/* File Upload UX */}

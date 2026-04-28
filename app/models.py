@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Table, func, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Table, func, Boolean, Text, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -138,7 +138,36 @@ class AppConfig(Base):
     expense_photo_required = Column(Boolean, default=False)
     expense_description_options = Column(String, default='["Almoço","Janta","Lanche","Hospedagem","Taxi/Uber","Estacionamento","Pedágio","Combustível","Locação"]')
     activity_edit_delete_allowed_statuses = Column(String, default='["pendente"]')
+    ia_provider = Column(String, default="anthropic")
+    ia_model_anthropic = Column(String, default="claude-sonnet-4-6")
+    ia_model_gemini = Column(String, default="gemini-2.5-flash")
+    anthropic_api_key_enc = Column(String, nullable=True)
+    anthropic_api_key_last4 = Column(String, nullable=True)
+    gemini_api_key_enc = Column(String, nullable=True)
+    gemini_api_key_last4 = Column(String, nullable=True)
     trip_edit_blocked_statuses = Column(String, default='["em_andamento","finalizada","cancelada"]')
     trip_activity_expense_allowed_statuses = Column(String, default='["em_andamento"]')
     trips_show_all_admin = Column(Boolean, default=True)
     trips_show_all_colaborador = Column(Boolean, default=True)
+
+
+class IALog(Base):
+    __tablename__ = "ia_log"
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    tipo = Column(String, nullable=False, index=True)
+
+    mensagem_usuario = Column(Text, nullable=True)
+    ferramentas_chamadas = Column(JSON, nullable=True)
+
+    tokens_input = Column(Integer, nullable=True)
+    tokens_output = Column(Integer, nullable=True)
+    tokens_cache_read = Column(Integer, nullable=True)
+    custo_estimado_usd = Column(Float, nullable=True)
+    latencia_ms = Column(Integer, nullable=True)
+
+    sucesso = Column(Boolean, nullable=False, default=False, index=True)
+    erro = Column(String, nullable=True)
+
+    usuario = relationship("Usuario")

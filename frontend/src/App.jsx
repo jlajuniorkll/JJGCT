@@ -14,6 +14,7 @@ import ControleTempo from './pages/ControleTempo';
 import RegistroDespesa from './pages/RegistroDespesa';
 import AdminUsuarios from './pages/AdminUsuarios';
 import AdminVeiculos from './pages/AdminVeiculos';
+import AdminIA from './pages/AdminIA';
 import RelatorioViagem from './pages/RelatorioViagem';
 import Configuracoes from './pages/Configuracoes';
 
@@ -42,6 +43,7 @@ function App() {
           <Route path="/viagens/:id/relatorio" element={<PrivateRoute><RelatorioViagem /></PrivateRoute>} />
           <Route path="/admin/usuarios" element={<PrivateRoute><AdminUsuarios /></PrivateRoute>} />
           <Route path="/admin/veiculos" element={<PrivateRoute><AdminVeiculos /></PrivateRoute>} />
+          <Route path="/admin/ia" element={<PrivateRoute><AdminIA /></PrivateRoute>} />
           <Route path="/admin/configuracoes" element={<PrivateRoute><Configuracoes /></PrivateRoute>} />
         </Routes>
       </AuthProvider>

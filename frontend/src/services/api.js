@@ -70,6 +70,24 @@ export const tripService = {
 export const configService = {
   get: () => api.get('/config/'),
   update: (data) => api.put('/config/', data),
+  testIA: (data) => api.post('/config/test-ia', data),
+};
+
+export const iaService = {
+  extrairComprovante: (file) => {
+    const data = new FormData();
+    data.append('file', file);
+    return api.post('/ia/extrair-comprovante', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  chatIA: (payload) => api.post('/ia/chat', payload),
+  getMetricasIA: (params) => api.get('/ia/admin/metricas', { params }),
+  getLogsIA: (params) => api.get('/ia/admin/logs', { params }),
+  confirmarAcaoIA: (idProposta) => api.post('/ia/confirmar-acao', { id_proposta: idProposta }),
+  cancelarAcaoIA: (idProposta) => api.post('/ia/cancelar-acao', { id_proposta: idProposta }),
 };
 
 export const expenseService = {

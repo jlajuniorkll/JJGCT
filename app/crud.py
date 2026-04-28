@@ -1,13 +1,67 @@
 import json
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from . import models, schemas
 from datetime import datetime, timezone
+from .ia.client import encrypt_secret
 
 
 def _utcnow_naive():
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def ensure_app_config_schema(engine):
+    dialect = engine.dialect.name
+    columns = [
+        ("ia_provider", "text", "'anthropic'", True),
+        ("ia_model_anthropic", "text", "'claude-sonnet-4-6'", True),
+        ("ia_model_gemini", "text", "'gemini-2.5-flash'", True),
+        ("anthropic_api_key_enc", "text", None, False),
+        ("anthropic_api_key_last4", "text", None, False),
+        ("gemini_api_key_enc", "text", None, False),
+        ("gemini_api_key_last4", "text", None, False),
+    ]
+
+    with engine.begin() as conn:
+        if dialect == "sqlite":
+            existing = set()
+            try:
+                rows = conn.execute(text("PRAGMA table_info(app_config)")).fetchall()
+                existing = {r[1] for r in rows}
+            except Exception:
+                return
+
+            for name, coltype, default_sql, not_null in columns:
+                if name in existing:
+                    continue
+                pieces = [f"ALTER TABLE app_config ADD COLUMN {name} {coltype}"]
+                if default_sql is not None:
+                    pieces.append(f"DEFAULT {default_sql}")
+                if not_null:
+                    pieces.append("NOT NULL")
+                conn.execute(text(" ".join(pieces)))
+            return
+
+        if dialect == "postgresql":
+            for name, coltype, default_sql, not_null in columns:
+                default_part = f"DEFAULT {default_sql}" if default_sql is not None else ""
+                not_null_part = "NOT NULL" if not_null else ""
+                conn.execute(
+                    text(
+                        "DO $$\n"
+                        "BEGIN\n"
+                        "  IF NOT EXISTS (\n"
+                        "    SELECT 1 FROM information_schema.columns\n"
+                        f"    WHERE table_name = 'app_config' AND column_name = '{name}'\n"
+                        "  ) THEN\n"
+                        f"    ALTER TABLE app_config ADD COLUMN {name} {coltype} {default_part} {not_null_part};\n"
+                        "  END IF;\n"
+                        "END $$;"
+                    )
+                )
+            return
 
 # Funções CRUD para Usuário
 def get_usuario(db: Session, usuario_id: int):
@@ -155,6 +209,33 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
 
     if payload.activity_edit_delete_allowed_statuses is not None:
         cfg.activity_edit_delete_allowed_statuses = json.dumps(payload.activity_edit_delete_allowed_statuses)
+
+    if payload.ia_provider is not None:
+        cfg.ia_provider = payload.ia_provider
+
+    if payload.ia_model_anthropic is not None:
+        cfg.ia_model_anthropic = payload.ia_model_anthropic
+
+    if payload.ia_model_gemini is not None:
+        cfg.ia_model_gemini = payload.ia_model_gemini
+
+    if payload.anthropic_api_key is not None:
+        raw = str(payload.anthropic_api_key or "").strip()
+        if raw:
+            cfg.anthropic_api_key_enc = encrypt_secret(raw)
+            cfg.anthropic_api_key_last4 = raw[-4:] if len(raw) >= 4 else raw
+        else:
+            cfg.anthropic_api_key_enc = None
+            cfg.anthropic_api_key_last4 = None
+
+    if payload.gemini_api_key is not None:
+        raw = str(payload.gemini_api_key or "").strip()
+        if raw:
+            cfg.gemini_api_key_enc = encrypt_secret(raw)
+            cfg.gemini_api_key_last4 = raw[-4:] if len(raw) >= 4 else raw
+        else:
+            cfg.gemini_api_key_enc = None
+            cfg.gemini_api_key_last4 = None
 
     if payload.trip_edit_blocked_statuses is not None:
         cfg.trip_edit_blocked_statuses = json.dumps(payload.trip_edit_blocked_statuses)
@@ -584,3 +665,125 @@ def reorder_atividades(db: Session, viagem_id: int, atividade_ids: list[int]):
 
     db.commit()
     return [by_id[aid] for aid in final_ids]
+
+
+def ia_listar_usuarios(db: Session, query: str | None = None, limit: int = 20):
+    q = db.query(models.Usuario)
+    if query:
+        needle = f"%{str(query).strip()}%"
+        if needle != "%%":
+            q = q.filter(or_(models.Usuario.nome.ilike(needle), models.Usuario.email.ilike(needle)))
+    limit = max(1, min(int(limit or 20), 50))
+    return q.order_by(models.Usuario.nome.asc()).limit(limit).all()
+
+
+def ia_listar_veiculos(db: Session, query: str | None = None, limit: int = 20):
+    q = db.query(models.Veiculo)
+    if query:
+        needle = f"%{str(query).strip()}%"
+        if needle != "%%":
+            q = q.filter(
+                or_(
+                    models.Veiculo.placa.ilike(needle),
+                    models.Veiculo.modelo.ilike(needle),
+                    models.Veiculo.marca.ilike(needle),
+                )
+            )
+    limit = max(1, min(int(limit or 20), 50))
+    return q.order_by(models.Veiculo.placa.asc()).limit(limit).all()
+
+
+def ia_listar_viagens_query(
+    db: Session,
+    *,
+    status: str | None = None,
+    periodo_inicio=None,
+    periodo_fim=None,
+    responsavel_id: int | None = None,
+):
+    q = db.query(models.Viagem)
+    if status:
+        q = q.filter(models.Viagem.status == str(status))
+    if responsavel_id is not None:
+        q = q.filter(models.Viagem.responsavel_id == responsavel_id)
+    if periodo_inicio is not None:
+        q = q.filter(models.Viagem.data_hora_prevista_saida >= periodo_inicio)
+    if periodo_fim is not None:
+        q = q.filter(models.Viagem.data_hora_prevista_saida <= periodo_fim)
+    return q
+
+
+def ia_listar_despesas_query(
+    db: Session,
+    *,
+    viagem_id: int,
+    categoria: str | None = None,
+    periodo_inicio=None,
+    periodo_fim=None,
+):
+    q = db.query(models.Despesa).filter(models.Despesa.viagem_id == viagem_id)
+    if categoria:
+        q = q.filter(models.Despesa.descricao == str(categoria))
+    if periodo_inicio is not None:
+        q = q.filter(models.Despesa.data_registro >= periodo_inicio)
+    if periodo_fim is not None:
+        q = q.filter(models.Despesa.data_registro <= periodo_fim)
+    return q
+
+
+def ia_total_despesas_viagem(db: Session, viagem_id: int) -> float:
+    total = db.query(func.coalesce(func.sum(models.Despesa.valor), 0.0)).filter(models.Despesa.viagem_id == viagem_id).scalar()
+    return float(total or 0.0)
+
+
+def ia_ranking_categorias(
+    db: Session,
+    *,
+    viagem_ids: list[int] | None = None,
+    periodo_inicio=None,
+    periodo_fim=None,
+    limit: int = 10,
+):
+    q = db.query(
+        models.Despesa.descricao.label("categoria"),
+        func.coalesce(func.sum(models.Despesa.valor), 0.0).label("total"),
+    )
+    if viagem_ids is not None:
+        if not viagem_ids:
+            return []
+        q = q.filter(models.Despesa.viagem_id.in_(viagem_ids))
+    if periodo_inicio is not None:
+        q = q.filter(models.Despesa.data_registro >= periodo_inicio)
+    if periodo_fim is not None:
+        q = q.filter(models.Despesa.data_registro <= periodo_fim)
+    limit = max(1, min(int(limit or 10), 20))
+    return (
+        q.group_by(models.Despesa.descricao)
+        .order_by(func.sum(models.Despesa.valor).desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def ia_get_transporte_kms(db: Session, viagem_id: int):
+    viagem = get_viagem(db, viagem_id)
+    if not viagem or not viagem.transporte:
+        return None, None
+    return viagem.transporte.km_saida, viagem.transporte.km_chegada
+
+
+def ia_listar_atividades_usuario(
+    db: Session,
+    *,
+    usuario_id: int,
+    periodo_inicio=None,
+    periodo_fim=None,
+    limit: int = 5000,
+):
+    q = db.query(models.Atividade).filter(models.Atividade.usuario_id == usuario_id)
+    if periodo_inicio is not None:
+        q = q.filter(models.Atividade.inicio >= periodo_inicio)
+    if periodo_fim is not None:
+        q = q.filter(models.Atividade.inicio <= periodo_fim)
+    limit = max(1, min(int(limit or 5000), 5000))
+    return q.order_by(models.Atividade.inicio.desc()).limit(limit).all()
