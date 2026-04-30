@@ -795,6 +795,26 @@ def confirmar_acao_ia(
             if str(getattr(atividade, "status", "") or "") != "finalizada":
                 raise HTTPException(status_code=400, detail=f"A atividade '{atividade.descricao}' ainda não foi finalizada.")
 
+        cfg = crud.get_app_config(db)
+        allow_manual_dt = bool(getattr(cfg, "trip_allow_manual_arrival_datetime", False))
+        data_hora_real_chegada = args.get("data_hora_real_chegada")
+        chegada_naive_utc = None
+        if data_hora_real_chegada is not None:
+            if not allow_manual_dt:
+                raise HTTPException(status_code=400, detail="Configuração não permite informar data/hora de chegada manualmente.")
+            s = str(data_hora_real_chegada or "").strip()
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            try:
+                from datetime import datetime, timezone
+
+                dt = datetime.fromisoformat(s)
+            except Exception:
+                raise HTTPException(status_code=400, detail="data_hora_real_chegada inválida.")
+            if getattr(dt, "tzinfo", None) is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            chegada_naive_utc = dt
+
         km_chegada = args.get("km_chegada")
         if str(getattr(db_viagem, "meio_transporte", "") or "") in {"carro empresa", "carro próprio"}:
             if km_chegada is None:
@@ -817,7 +837,7 @@ def confirmar_acao_ia(
                 if km_saida is not None and km_chegada_f < km_saida:
                     raise HTTPException(status_code=400, detail="km_chegada inválido (deve ser maior ou igual ao km de saída).")
 
-        updated = crud.registrar_chegada_real(db, viagem_id=viagem_id, km_chegada=km_chegada_f)
+        updated = crud.registrar_chegada_real(db, viagem_id=viagem_id, km_chegada=km_chegada_f, data_hora_real_chegada=chegada_naive_utc)
         if not updated:
             raise HTTPException(status_code=404, detail="Viagem não encontrada.")
 
@@ -827,7 +847,7 @@ def confirmar_acao_ia(
             "registro_criado": {
                 "tipo": "viagem_finalizada",
                 "id": int(updated.id),
-                "viagem_id": int(updated.id),
+                "viagem_id": int(viagem_id),
                 "status": str(updated.status),
                 "data_hora_real_chegada": updated.data_hora_real_chegada.isoformat() if getattr(updated, "data_hora_real_chegada", None) else None,
                 "km_chegada": float(getattr(getattr(updated, "transporte", None), "km_chegada", 0.0) or 0.0) if getattr(updated, "transporte", None) else None,

@@ -57,10 +57,13 @@ export const tripService = {
     if (motorista_id) params.motorista_id = motorista_id;
     return api.post(`/viagens/${id}/registrar-saida`, null, { params });
   },
-  registerArrival: (id, km_chegada) => {
+  registerArrival: (id, { km_chegada, data_hora_real_chegada } = {}) => {
     const params = {};
     if (km_chegada !== undefined && km_chegada !== null && `${km_chegada}`.trim() !== '') {
       params.km_chegada = km_chegada;
+    }
+    if (data_hora_real_chegada !== undefined && data_hora_real_chegada !== null && `${data_hora_real_chegada}`.trim() !== '') {
+      params.data_hora_real_chegada = data_hora_real_chegada;
     }
     return api.post(`/viagens/${id}/registrar-chegada`, null, { params });
   },

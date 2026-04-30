@@ -1,5 +1,6 @@
 import json
 from typing import Any
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -405,6 +406,26 @@ def finalizar_viagem(db: Session, usuario_logado: models.Usuario, args: dict[str
             ],
         }
 
+    cfg = crud.get_app_config(db)
+    allow_manual_dt = bool(getattr(cfg, "trip_allow_manual_arrival_datetime", False))
+
+    data_hora_real_chegada = None
+    dt_raw = args.get("data_hora_real_chegada")
+    if dt_raw is not None:
+        if not allow_manual_dt:
+            return {"erro": "Configuração não permite informar data/hora de chegada manualmente."}
+        s = str(dt_raw or "").strip()
+        if s:
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            try:
+                dt = datetime.fromisoformat(s)
+            except Exception:
+                return {"erro": "data_hora_real_chegada inválida."}
+            if getattr(dt, "tzinfo", None) is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            data_hora_real_chegada = dt
+
     km_chegada = args.get("km_chegada")
     needs_km = str(getattr(db_viagem, "meio_transporte", "") or "") in {"carro empresa", "carro próprio"}
     if needs_km and km_chegada is None:
@@ -426,10 +447,11 @@ def finalizar_viagem(db: Session, usuario_logado: models.Usuario, args: dict[str
             if km_saida is not None and km_chegada_f < km_saida:
                 return {"erro": "km_chegada inválido (deve ser maior ou igual ao km de saída)."}
 
-    args_validados = {"viagem_id": viagem_id, "km_chegada": km_chegada_f}
+    args_validados = {"viagem_id": viagem_id, "km_chegada": km_chegada_f, "data_hora_real_chegada": data_hora_real_chegada.isoformat() if data_hora_real_chegada else None}
     resumo = (
         f"Finalizar viagem #{viagem_id} (registrar chegada)\n"
         + (f"- KM chegada: {km_chegada_f}" if km_chegada_f is not None else "- KM chegada: (não informado)")
+        + (f"\n- Chegada: {data_hora_real_chegada.isoformat()}" if data_hora_real_chegada else "")
     )
     prop = proposals.criar_proposta(
         usuario_id=int(usuario_logado.id),

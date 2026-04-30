@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from ... import crud, models, schemas
 from ...database import SessionLocal
@@ -17,6 +17,14 @@ def _ensure_utc(dt):
     if getattr(dt, "tzinfo", None) is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def _to_utc_naive(dt: datetime | None):
+    if dt is None:
+        return None
+    if getattr(dt, "tzinfo", None) is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def _normalize_viagem(db_viagem):
@@ -186,7 +194,12 @@ def registrar_saida(
     return _normalize_viagem(crud.registrar_saida_real(db, viagem_id=viagem_id, km_saida=km_saida))
 
 @router.post("/{viagem_id}/registrar-chegada", response_model=schemas.Viagem)
-def registrar_chegada(viagem_id: int, km_chegada: float = None, db: Session = Depends(get_db)):
+def registrar_chegada(
+    viagem_id: int,
+    km_chegada: float = None,
+    data_hora_real_chegada: datetime | None = None,
+    db: Session = Depends(get_db),
+):
     db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
@@ -205,7 +218,20 @@ def registrar_chegada(viagem_id: int, km_chegada: float = None, db: Session = De
         if km_chegada is None:
             raise HTTPException(status_code=400, detail="KM de chegada é obrigatório para este meio de transporte.")
 
-    return _normalize_viagem(crud.registrar_chegada_real(db, viagem_id=viagem_id, km_chegada=km_chegada))
+    cfg = crud.get_app_config(db)
+    allow_manual = bool(getattr(cfg, "trip_allow_manual_arrival_datetime", False))
+    if data_hora_real_chegada is not None and not allow_manual:
+        raise HTTPException(status_code=400, detail="Configuração não permite informar data/hora de chegada manualmente.")
+
+    chegada_naive_utc = _to_utc_naive(data_hora_real_chegada) if allow_manual else None
+    return _normalize_viagem(
+        crud.registrar_chegada_real(
+            db,
+            viagem_id=viagem_id,
+            km_chegada=km_chegada,
+            data_hora_real_chegada=chegada_naive_utc,
+        )
+    )
 
 @router.get("/{viagem_id}/relatorio", response_model=schemas.RelatorioViagem)
 def relatorio_viagem(viagem_id: int, db: Session = Depends(get_db)):

@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tripService } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, Clock, CheckCircle, AlertCircle, Car, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const toDateTimeLocalValue = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
+
 const RegistroChegada = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { appConfig } = useAuth();
+  const allowManualArrivalDatetime = !!appConfig?.trip_allow_manual_arrival_datetime;
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [kmChegada, setKmChegada] = useState('');
+  const [useManualArrivalDatetime, setUseManualArrivalDatetime] = useState(false);
+  const [manualArrivalDatetime, setManualArrivalDatetime] = useState('');
 
   useEffect(() => {
     const fetchTrip = async () => {
@@ -37,7 +44,19 @@ const RegistroChegada = () => {
         return;
       }
       const km = requiresKm ? kmChegada : undefined;
-      await tripService.registerArrival(id, km);
+
+      let dataHoraChegadaISO = undefined;
+      if (allowManualArrivalDatetime && useManualArrivalDatetime) {
+        const raw = String(manualArrivalDatetime || '').trim();
+        const dt = raw ? new Date(raw) : null;
+        if (!dt || Number.isNaN(dt.getTime())) {
+          alert('Data/hora de chegada inválida.');
+          return;
+        }
+        dataHoraChegadaISO = dt.toISOString();
+      }
+
+      await tripService.registerArrival(id, { km_chegada: km, data_hora_real_chegada: dataHoraChegadaISO });
       navigate(`/viagens/${id}`);
     } catch (err) {
       alert(err.response?.data?.detail || 'Erro ao registrar retorno');
@@ -88,6 +107,37 @@ const RegistroChegada = () => {
                 </p>
               </div>
             </div>
+
+            {allowManualArrivalDatetime ? (
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-gray-800">Definir data/hora de chegada</p>
+                    <p className="text-xs font-bold text-gray-500">Se desativado, o sistema registra automaticamente.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={useManualArrivalDatetime}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setUseManualArrivalDatetime(next);
+                      if (next) {
+                        setManualArrivalDatetime((prev) => (String(prev || '').trim() ? prev : toDateTimeLocalValue(new Date())));
+                      }
+                    }}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+                  />
+                </div>
+                {useManualArrivalDatetime ? (
+                  <input
+                    type="datetime-local"
+                    value={manualArrivalDatetime}
+                    onChange={(e) => setManualArrivalDatetime(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  />
+                ) : null}
+              </div>
+            ) : null}
 
             {requiresKm && (
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">

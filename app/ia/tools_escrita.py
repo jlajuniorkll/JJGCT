@@ -85,6 +85,7 @@ TOOLS_ESCRITA = [
             "properties": {
                 "viagem_id": {"type": "integer", "description": "ID da viagem."},
                 "km_chegada": {"type": "number", "description": "KM de chegada (obrigatório para carro empresa ou carro próprio)."},
+                "data_hora_real_chegada": {"type": "string", "description": "Data/hora da chegada real em ISO 8601 (opcional; depende da configuração)."},
             },
             "required": ["viagem_id"],
             "additionalProperties": False,

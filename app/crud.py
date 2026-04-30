@@ -22,6 +22,8 @@ def ensure_app_config_schema(engine):
         ("anthropic_api_key_last4", "text", None, False),
         ("gemini_api_key_enc", "text", None, False),
         ("gemini_api_key_last4", "text", None, False),
+        ("report_include_receipts", "boolean", "true", True),
+        ("trip_allow_manual_arrival_datetime", "boolean", "false", True),
     ]
 
     with engine.begin() as conn:
@@ -206,6 +208,9 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
 
     if payload.report_include_receipts is not None:
         cfg.report_include_receipts = payload.report_include_receipts
+
+    if payload.trip_allow_manual_arrival_datetime is not None:
+        cfg.trip_allow_manual_arrival_datetime = payload.trip_allow_manual_arrival_datetime
 
     if payload.expense_description_options is not None:
         cfg.expense_description_options = json.dumps(payload.expense_description_options)
