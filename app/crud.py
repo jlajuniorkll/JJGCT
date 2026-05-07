@@ -23,6 +23,7 @@ def ensure_app_config_schema(engine):
         ("gemini_api_key_enc", "text", None, False),
         ("gemini_api_key_last4", "text", None, False),
         ("report_include_receipts", "boolean", "true", True),
+        ("trip_allow_manual_departure_datetime", "boolean", "false", True),
         ("trip_allow_manual_arrival_datetime", "boolean", "false", True),
     ]
 
@@ -208,6 +209,9 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
 
     if payload.report_include_receipts is not None:
         cfg.report_include_receipts = payload.report_include_receipts
+
+    if payload.trip_allow_manual_departure_datetime is not None:
+        cfg.trip_allow_manual_departure_datetime = payload.trip_allow_manual_departure_datetime
 
     if payload.trip_allow_manual_arrival_datetime is not None:
         cfg.trip_allow_manual_arrival_datetime = payload.trip_allow_manual_arrival_datetime
@@ -461,10 +465,15 @@ def update_viagem(db: Session, viagem_id: int, viagem: schemas.ViagemUpdate):
     db.refresh(db_viagem)
     return db_viagem
 
-def registrar_saida_real(db: Session, viagem_id: int, km_saida: float = None):
+def registrar_saida_real(
+    db: Session,
+    viagem_id: int,
+    km_saida: float = None,
+    data_hora_real_saida: datetime | None = None,
+):
     db_viagem = get_viagem(db, viagem_id)
     if db_viagem:
-        db_viagem.data_hora_real_saida = _utcnow_naive()
+        db_viagem.data_hora_real_saida = data_hora_real_saida or _utcnow_naive()
         db_viagem.status = "em_andamento"
         if km_saida is not None and db_viagem.transporte:
             db_viagem.transporte.km_saida = km_saida

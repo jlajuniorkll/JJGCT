@@ -26,6 +26,7 @@ const Configuracoes = () => {
   const [saving, setSaving] = useState(false);
   const [expensePhotoRequired, setExpensePhotoRequired] = useState(false);
   const [reportIncludeReceipts, setReportIncludeReceipts] = useState(true);
+  const [tripAllowManualDepartureDatetime, setTripAllowManualDepartureDatetime] = useState(false);
   const [tripAllowManualArrivalDatetime, setTripAllowManualArrivalDatetime] = useState(false);
   const [expenseDescriptionOptions, setExpenseDescriptionOptions] = useState([
     'Almoço',
@@ -70,6 +71,7 @@ const Configuracoes = () => {
       const data = res.data;
       setExpensePhotoRequired(!!data.expense_photo_required);
       setReportIncludeReceipts(data?.report_include_receipts !== false);
+      setTripAllowManualDepartureDatetime(!!data?.trip_allow_manual_departure_datetime);
       setTripAllowManualArrivalDatetime(!!data?.trip_allow_manual_arrival_datetime);
       setExpenseDescriptionOptions(
         Array.isArray(data.expense_description_options) && data.expense_description_options.length
@@ -149,6 +151,7 @@ const Configuracoes = () => {
       await configService.update({
         expense_photo_required: expensePhotoRequired,
         report_include_receipts: reportIncludeReceipts,
+        trip_allow_manual_departure_datetime: tripAllowManualDepartureDatetime,
         trip_allow_manual_arrival_datetime: tripAllowManualArrivalDatetime,
         expense_description_options: expenseDescriptionOptions,
         activity_edit_delete_allowed_statuses: activityEditDeleteAllowedStatuses,
@@ -280,6 +283,20 @@ const Configuracoes = () => {
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-4">
             <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Viagens</h2>
+            <label className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer">
+              <div>
+                <p className="text-sm font-black text-gray-800">Permitir informar data/hora de saída</p>
+                <p className="text-xs font-bold text-gray-500">
+                  Ao iniciar a viagem, permite escolher manualmente a data/hora da saída. Se desativado, o sistema usa o horário atual.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={tripAllowManualDepartureDatetime}
+                onChange={(e) => setTripAllowManualDepartureDatetime(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+              />
+            </label>
             <label className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer">
               <div>
                 <p className="text-sm font-black text-gray-800">Permitir informar data/hora de chegada</p>

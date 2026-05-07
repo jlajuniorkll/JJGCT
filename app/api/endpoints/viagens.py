@@ -165,6 +165,7 @@ def registrar_saida(
     viagem_id: int,
     km_saida: float = None,
     motorista_id: int = None,
+    data_hora_real_saida: datetime | None = None,
     x_user_id: int = Header(default=None),
     db: Session = Depends(get_db),
 ):
@@ -191,7 +192,15 @@ def registrar_saida(
                 raise HTTPException(status_code=400, detail="KM de saída é obrigatório para o motorista ao iniciar a viagem.")
         # se não for o motorista, km de saída é opcional
 
-    return _normalize_viagem(crud.registrar_saida_real(db, viagem_id=viagem_id, km_saida=km_saida))
+    cfg = crud.get_app_config(db)
+    allow_manual = bool(getattr(cfg, "trip_allow_manual_departure_datetime", False))
+    if data_hora_real_saida is not None and not allow_manual:
+        raise HTTPException(status_code=400, detail="Configuração não permite informar data/hora de saída manualmente.")
+
+    saida_naive_utc = _to_utc_naive(data_hora_real_saida) if allow_manual else None
+    return _normalize_viagem(
+        crud.registrar_saida_real(db, viagem_id=viagem_id, km_saida=km_saida, data_hora_real_saida=saida_naive_utc)
+    )
 
 @router.post("/{viagem_id}/registrar-chegada", response_model=schemas.Viagem)
 def registrar_chegada(

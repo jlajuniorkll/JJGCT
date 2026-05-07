@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api, { expenseService, configService, iaService } from '../services/api';
+import api, { expenseService, iaService } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { 
   DollarSign, 
   ArrowLeft, 
@@ -16,6 +17,7 @@ import {
 const RegistroDespesa = () => {
   const { id, despesaId } = useParams();
   const navigate = useNavigate();
+  const { appConfig, iaEnabled, refreshConfig } = useAuth();
   const [loading, setLoading] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [file, setFile] = useState(null);
@@ -37,10 +39,12 @@ const RegistroDespesa = () => {
   const [iaBannerActive, setIaBannerActive] = useState(false);
   const [iaLowConfidence, setIaLowConfidence] = useState({});
   const [iaToast, setIaToast] = useState('');
+  const [dragActive, setDragActive] = useState(false);
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const valorInputRef = useRef(null);
+  const previewObjectUrlRef = useRef(null);
   
   const [formData, setFormData] = useState({
     valor: '',
@@ -61,6 +65,29 @@ const RegistroDespesa = () => {
     img.onerror = reject;
     img.src = dataUrl;
   });
+
+  const clearPreviewObjectUrl = () => {
+    try {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+    } catch {
+      0;
+    } finally {
+      previewObjectUrlRef.current = null;
+    }
+  };
+
+  const setPreviewFromFile = (f) => {
+    clearPreviewObjectUrl();
+    try {
+      const url = URL.createObjectURL(f);
+      previewObjectUrlRef.current = url;
+      setPreview(url);
+    } catch {
+      setPreview(null);
+    }
+  };
 
   const optimizeImage = async (inputFile) => {
     if (!inputFile?.type?.startsWith('image/')) return inputFile;
@@ -96,21 +123,41 @@ const RegistroDespesa = () => {
     return optimizedFile.size < inputFile.size ? optimizedFile : inputFile;
   };
 
-  const handleFileChange = async (e) => {
-    const selected = e.target.files?.[0];
+  const processSelectedFile = async (selected) => {
     if (!selected) return;
+    if (!selected.type?.startsWith('image/')) {
+      setIaToast('Arquivo inválido. Envie uma imagem (PNG/JPG).');
+      setTimeout(() => setIaToast(''), 6000);
+      return;
+    }
 
+    setIaBannerActive(false);
+    setIaLowConfidence({});
+    setIaToast('');
     setOptimizing(true);
     try {
       const processed = await optimizeImage(selected);
       setFile(processed);
-      setPreview(await readAsDataURL(processed));
+      setPreviewFromFile(processed);
     } catch (err) {
       console.error(err);
       setFile(selected);
-      setPreview(await readAsDataURL(selected));
+      setPreviewFromFile(selected);
+      if (!selected.type?.startsWith('image/')) {
+        setIaToast('Não foi possível ler este arquivo. Tente JPG/PNG.');
+        setTimeout(() => setIaToast(''), 6000);
+      }
     } finally {
       setOptimizing(false);
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    try {
+      await processSelectedFile(selected);
+    } finally {
       e.target.value = '';
     }
   };
@@ -120,6 +167,124 @@ const RegistroDespesa = () => {
     const base = api.defaults.baseURL || '';
     const normalized = String(path).replace(/^\/+/, '');
     return `${base}/${normalized}`;
+  };
+
+  const getRelativeApiPath = (fullUrl) => {
+    const base = String(api.defaults.baseURL || '').replace(/\/+$/, '');
+    const url = String(fullUrl || '');
+    if (!base) return url;
+    if (url === base) return '/';
+    if (url.startsWith(base + '/')) return url.slice(base.length);
+    return url;
+  };
+
+  const getFileForIA = async () => {
+    if (file) return file;
+    if (!preview) return null;
+    const p = String(preview || '');
+    if (!p || p.startsWith('blob:') || p.startsWith('data:')) return null;
+    try {
+      const rel = getRelativeApiPath(p);
+      const res = await api.get(rel, { responseType: 'blob' });
+      const blob = res.data;
+      if (!(blob instanceof Blob)) return null;
+      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+      return new File([blob], `comprovante.${ext}`, { type: blob.type || 'image/jpeg' });
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  };
+
+  const extrairComIA = async () => {
+    if (iaLoading || optimizing) return;
+    setIaToast('');
+    setIaLoading(true);
+    try {
+      const f = await getFileForIA();
+      if (!f) {
+        setIaToast('Selecione um comprovante antes de extrair com IA.');
+        setTimeout(() => setIaToast(''), 6000);
+        return;
+      }
+
+      let lastErr = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const res = await iaService.extrairComprovante(f);
+          const data = res.data || {};
+
+          const extractedValor = data.valor;
+          const extractedDescricao = data.descricao;
+          const extractedForma = data.forma_pagamento;
+          const hasAnyExtracted =
+            extractedValor !== null && extractedValor !== undefined ||
+            extractedDescricao !== null && extractedDescricao !== undefined ||
+            extractedForma !== null && extractedForma !== undefined;
+          if (!hasAnyExtracted) {
+            setIaToast('A IA não conseguiu extrair os campos desse comprovante. Preencha manualmente.');
+            setTimeout(() => setIaToast(''), 6000);
+            return;
+          }
+          const confianca = data.confianca || {};
+          const formaMap = {
+            DINHEIRO: 'Dinheiro / Reembolso',
+            CARTAO_CREDITO: 'Cartão Corporativo',
+            CARTAO_DEBITO: 'Cartão Corporativo',
+            PIX: 'Dinheiro / Reembolso',
+            OUTRO: 'Faturado Empresa',
+          };
+          const uiForma = extractedForma ? (formaMap[String(extractedForma)] || null) : null;
+
+          const currentHasAny =
+            String(formData.valor || '').trim() !== '' ||
+            String(formData.descricao || '').trim() !== '' ||
+            String(formData.forma_pagamento || '').trim() !== '';
+
+          if (currentHasAny) {
+            const ok = window.confirm('Preencher com dados do comprovante e sobrescrever os campos atuais?');
+            if (!ok) return;
+          }
+
+          setFormData((prev) => ({
+            ...prev,
+            valor: extractedValor === null || extractedValor === undefined ? prev.valor : String(extractedValor),
+            descricao: extractedDescricao === null || extractedDescricao === undefined ? prev.descricao : String(extractedDescricao),
+            forma_pagamento: uiForma === null || uiForma === undefined ? prev.forma_pagamento : String(uiForma),
+          }));
+          setIaLowConfidence({
+            valor: Number(confianca.valor ?? 0),
+            descricao: Number(confianca.descricao ?? 0),
+            forma_pagamento: Number(confianca.forma_pagamento ?? 0),
+          });
+          setIaBannerActive(true);
+          if (Array.isArray(data.avisos) && data.avisos.length) {
+            setIaToast(data.avisos.join(' '));
+            setTimeout(() => setIaToast(''), 6000);
+          }
+          return;
+        } catch (err) {
+          lastErr = err;
+          const status = err?.response?.status;
+          if (status === 503) {
+            await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      const detail = lastErr?.response?.data?.detail;
+      setIaToast(detail ? String(detail) : 'IA indisponível no momento. Tente novamente.');
+      setTimeout(() => setIaToast(''), 6000);
+    } catch (err) {
+      console.error(err);
+      const detail = err?.response?.data?.detail;
+      setIaToast(detail ? String(detail) : 'Não foi possível ler o comprovante, preencha manualmente');
+      setTimeout(() => setIaToast(''), 6000);
+    } finally {
+      setIaLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -134,6 +299,7 @@ const RegistroDespesa = () => {
           descricao: exp.descricao || '',
         });
         setFile(null);
+        clearPreviewObjectUrl();
         setPreview(getComprovanteUrl(exp.comprovante_url));
       } catch (err) {
         console.error(err);
@@ -141,34 +307,38 @@ const RegistroDespesa = () => {
       }
     };
 
-    const fetchConfig = async () => {
-      try {
-        const res = await configService.get();
-        setExpensePhotoRequired(!!res.data?.expense_photo_required);
-        setIaAvailable(!!res.data?.anthropic_api_key_configured || !!res.data?.gemini_api_key_configured);
-        setExpenseDescriptionOptions(
-          Array.isArray(res.data?.expense_description_options) && res.data.expense_description_options.length
-            ? res.data.expense_description_options
-            : [
-                'Almoço',
-                'Janta',
-                'Lanche',
-                'Hospedagem',
-                'Taxi/Uber',
-                'Estacionamento',
-                'Pedágio',
-                'Combustível',
-                'Locação',
-              ],
-        );
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
     fetchDespesa();
-    fetchConfig();
   }, [despesaId]);
+
+  useEffect(() => {
+    refreshConfig?.();
+  }, [refreshConfig]);
+
+  useEffect(() => {
+    setExpensePhotoRequired(!!appConfig?.expense_photo_required);
+    setIaAvailable(!!iaEnabled);
+    setExpenseDescriptionOptions(
+      Array.isArray(appConfig?.expense_description_options) && appConfig.expense_description_options.length
+        ? appConfig.expense_description_options
+        : [
+            'Almoço',
+            'Janta',
+            'Lanche',
+            'Hospedagem',
+            'Taxi/Uber',
+            'Estacionamento',
+            'Pedágio',
+            'Combustível',
+            'Locação',
+          ],
+    );
+  }, [appConfig, iaEnabled]);
+
+  useEffect(() => {
+    return () => {
+      clearPreviewObjectUrl();
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -186,7 +356,6 @@ const RegistroDespesa = () => {
     try {
       const data = new FormData();
       data.append('valor', formData.valor);
-      data.append('forma_pagamento', formData.forma_pagamento);
       data.append('forma_pagamento', formData.forma_pagamento);
       data.append('descricao', formData.descricao);
       if (file) data.append('file', file);
@@ -300,76 +469,8 @@ const RegistroDespesa = () => {
               {iaAvailable ? (
                 <button
                   type="button"
-                  disabled={!file || iaLoading || optimizing}
-                  onClick={async () => {
-                    if (!file) return;
-                    setIaToast('');
-                    setIaLoading(true);
-                    try {
-                      const res = await iaService.extrairComprovante(file);
-                      const data = res.data || {};
-
-                      const extractedValor = data.valor;
-                      const extractedDescricao = data.descricao;
-                      const extractedForma = data.forma_pagamento;
-                      const hasAnyExtracted =
-                        extractedValor !== null && extractedValor !== undefined ||
-                        extractedDescricao !== null && extractedDescricao !== undefined ||
-                        extractedForma !== null && extractedForma !== undefined;
-                      if (!hasAnyExtracted) {
-                        setIaToast('A IA não conseguiu extrair os campos desse comprovante. Preencha manualmente.');
-                        setTimeout(() => setIaToast(''), 6000);
-                        setIaLoading(false);
-                        return;
-                      }
-                      const confianca = data.confianca || {};
-                      const formaMap = {
-                        DINHEIRO: 'Dinheiro / Reembolso',
-                        CARTAO_CREDITO: 'Cartão Corporativo',
-                        CARTAO_DEBITO: 'Cartão Corporativo',
-                        PIX: 'Dinheiro / Reembolso',
-                        OUTRO: 'Faturado Empresa',
-                      };
-                      const uiForma = extractedForma ? (formaMap[String(extractedForma)] || null) : null;
-
-                      const currentHasAny =
-                        String(formData.valor || '').trim() !== '' ||
-                        String(formData.descricao || '').trim() !== '' ||
-                        String(formData.forma_pagamento || '').trim() !== '';
-
-                      if (currentHasAny) {
-                        const ok = window.confirm('Preencher com dados do comprovante e sobrescrever os campos atuais?');
-                        if (!ok) {
-                          setIaLoading(false);
-                          return;
-                        }
-                      }
-
-                      setFormData((prev) => ({
-                        ...prev,
-                        valor: extractedValor === null || extractedValor === undefined ? prev.valor : String(extractedValor),
-                        descricao: extractedDescricao === null || extractedDescricao === undefined ? prev.descricao : String(extractedDescricao),
-                        forma_pagamento: uiForma === null || uiForma === undefined ? prev.forma_pagamento : String(uiForma),
-                      }));
-                      setIaLowConfidence({
-                        valor: Number(confianca.valor ?? 0),
-                        descricao: Number(confianca.descricao ?? 0),
-                        forma_pagamento: Number(confianca.forma_pagamento ?? 0),
-                      });
-                      setIaBannerActive(true);
-                      if (Array.isArray(data.avisos) && data.avisos.length) {
-                        setIaToast(data.avisos.join(' '));
-                        setTimeout(() => setIaToast(''), 6000);
-                      }
-                    } catch (err) {
-                      console.error(err);
-                      const detail = err?.response?.data?.detail;
-                      setIaToast(detail ? String(detail) : 'Não foi possível ler o comprovante, preencha manualmente');
-                      setTimeout(() => setIaToast(''), 6000);
-                    } finally {
-                      setIaLoading(false);
-                    }
-                  }}
+                  disabled={(!file && !preview) || iaLoading || optimizing}
+                  onClick={extrairComIA}
                   className="w-full bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
                 >
                   <Sparkles size={18} /> {iaLoading ? 'Extraindo com IA…' : 'Extrair com IA'}
@@ -408,13 +509,27 @@ const RegistroDespesa = () => {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
+                      onDragEnter={() => setDragActive(true)}
+                      onDragLeave={() => setDragActive(false)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragActive(true);
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragActive(false);
+                        const dropped = e.dataTransfer?.files?.[0];
+                        if (dropped) await processSelectedFile(dropped);
+                      }}
                       disabled={optimizing}
                       className="flex flex-col items-center justify-center w-full h-[200px] md:h-[220px] border-4 border-dashed border-gray-100 rounded-3xl hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer group disabled:opacity-50"
                     >
                       <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 mb-3 group-hover:scale-110 transition-transform">
                         <Upload size={32} />
                       </div>
-                      <p className="text-sm font-bold text-gray-500">Clique para anexar</p>
+                      <p className="text-sm font-bold text-gray-500">{dragActive ? 'Solte para anexar' : 'Clique para anexar'}</p>
                       <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-widest">PNG, JPG até 10MB</p>
                       <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-widest">Otimizado automaticamente</p>
                       {optimizing && (
@@ -431,7 +546,7 @@ const RegistroDespesa = () => {
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button 
                         type="button" 
-                        onClick={() => { setFile(null); setPreview(null); }}
+                        onClick={() => { setFile(null); clearPreviewObjectUrl(); setPreview(null); }}
                         className="bg-white/90 p-3 rounded-2xl text-red-600 font-bold flex items-center gap-2 shadow-xl active:scale-95"
                       >
                         <X size={20} /> Remover

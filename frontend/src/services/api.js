@@ -49,12 +49,15 @@ export const tripService = {
   get: (id) => api.get(`/viagens/${id}`),
   update: (id, data) => api.put(`/viagens/${id}`, data),
   cancel: (id) => api.post(`/viagens/${id}/cancelar`),
-  registerDeparture: (id, { km_saida, motorista_id } = {}) => {
+  registerDeparture: (id, { km_saida, motorista_id, data_hora_real_saida } = {}) => {
     const params = {};
     if (km_saida !== undefined && km_saida !== null && `${km_saida}`.trim() !== '') {
       params.km_saida = km_saida;
     }
     if (motorista_id) params.motorista_id = motorista_id;
+    if (data_hora_real_saida !== undefined && data_hora_real_saida !== null && `${data_hora_real_saida}`.trim() !== '') {
+      params.data_hora_real_saida = data_hora_real_saida;
+    }
     return api.post(`/viagens/${id}/registrar-saida`, null, { params });
   },
   registerArrival: (id, { km_chegada, data_hora_real_chegada } = {}) => {

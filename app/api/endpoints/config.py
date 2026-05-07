@@ -65,6 +65,7 @@ def _to_schema(cfg, is_admin: bool) -> schemas.AppConfig:
     return schemas.AppConfig(
         expense_photo_required=bool(cfg.expense_photo_required),
         report_include_receipts=bool(getattr(cfg, "report_include_receipts", True)),
+        trip_allow_manual_departure_datetime=bool(getattr(cfg, "trip_allow_manual_departure_datetime", False)),
         trip_allow_manual_arrival_datetime=bool(getattr(cfg, "trip_allow_manual_arrival_datetime", False)),
         expense_description_options=[str(s) for s in expense_desc],
         activity_edit_delete_allowed_statuses=[str(s) for s in act_statuses],

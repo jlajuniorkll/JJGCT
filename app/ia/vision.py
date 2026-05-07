@@ -108,6 +108,9 @@ def _gemini_extract(imagem_bytes: bytes, categorias_validas: list[str], api_key:
         "Extraia dados deste comprovante brasileiro.\n"
         "Retorne APENAS JSON válido, sem markdown e sem explicações.\n"
         "Use somente estas chaves: valor, descricao, forma_pagamento, data_emissao, estabelecimento, avisos.\n"
+        f"Categorias válidas (escolha exatamente uma para 'descricao'): {', '.join(categorias)}\n"
+        "'descricao' deve ser exatamente uma das categorias válidas acima.\n"
+        "Se você não tiver certeza da categoria, use 'Outros' e inclua um aviso curto.\n"
         "forma_pagamento: DINHEIRO | CARTAO_CREDITO | CARTAO_DEBITO | PIX | OUTRO | \"\".\n"
         "Se não conseguir extrair um campo, use \"\" (string vazia) e avisos com uma explicação curta.\n"
         "A resposta deve ser curta e direta.\n"
@@ -260,7 +263,8 @@ def _gemini_extract(imagem_bytes: bytes, categorias_validas: list[str], api_key:
 
     if parsed is None and saw_text and finish_reason in {"MAX_TOKENS", "STOP"}:
         retry_prompt = (
-            "Retorne APENAS JSON válido com as chaves: valor, descricao, forma_pagamento, data_emissao, estabelecimento, avisos."
+            "Retorne APENAS JSON válido com as chaves: valor, descricao, forma_pagamento, data_emissao, estabelecimento, avisos. "
+            f"'descricao' deve ser exatamente uma destas categorias: {', '.join(categorias)}"
         )
         retry_body = {
             "contents": [
