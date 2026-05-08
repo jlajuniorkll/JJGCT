@@ -85,7 +85,9 @@ const RegistroDespesa = () => {
       previewObjectUrlRef.current = url;
       setPreview(url);
     } catch {
-      setPreview(null);
+      readAsDataURL(f)
+        .then((dataUrl) => setPreview(String(dataUrl || '')))
+        .catch(() => setPreview(null));
     }
   };
 
@@ -125,6 +127,20 @@ const RegistroDespesa = () => {
 
   const processSelectedFile = async (selected) => {
     if (!selected) return;
+    const lowerName = String(selected?.name || '').toLowerCase();
+    const mime = String(selected?.type || '').toLowerCase();
+    const isHeic =
+      mime === 'image/heic' ||
+      mime === 'image/heif' ||
+      lowerName.endsWith('.heic') ||
+      lowerName.endsWith('.heif');
+
+    if (isHeic) {
+      setIaToast('Formato HEIC/HEIF não suportado. Converta para JPG/PNG e tente novamente.');
+      setTimeout(() => setIaToast(''), 6000);
+      return;
+    }
+
     if (!selected.type?.startsWith('image/')) {
       setIaToast('Arquivo inválido. Envie uma imagem (PNG/JPG).');
       setTimeout(() => setIaToast(''), 6000);

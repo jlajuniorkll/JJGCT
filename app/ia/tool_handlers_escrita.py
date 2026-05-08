@@ -397,7 +397,14 @@ def finalizar_viagem(db: Session, usuario_logado: models.Usuario, args: dict[str
     if str(getattr(db_viagem, "status", "") or "") != "em_andamento":
         return {"erro": "A chegada só pode ser registrada para viagens em andamento."}
 
-    pendentes = [a for a in (getattr(db_viagem, "atividades", None) or []) if str(getattr(a, "status", "") or "") != "finalizada"]
+    pendentes = []
+    for a in (getattr(db_viagem, "atividades", None) or []):
+        status = str(getattr(a, "status", "") or "")
+        started = getattr(a, "inicio", None) is not None
+        if status in {"ativa", "pausada"}:
+            pendentes.append(a)
+        elif started and status != "finalizada":
+            pendentes.append(a)
     if pendentes:
         return {
             "erro": "Ainda existem atividades não finalizadas. Finalize todas antes de encerrar a viagem.",

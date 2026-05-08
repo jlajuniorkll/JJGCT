@@ -481,10 +481,15 @@ def registrar_saida_real(
         db.refresh(db_viagem)
     return db_viagem
 
-def registrar_chegada_real(db: Session, viagem_id: int, km_chegada: float = None):
+def registrar_chegada_real(
+    db: Session,
+    viagem_id: int,
+    km_chegada: float = None,
+    data_hora_real_chegada: datetime | None = None,
+):
     db_viagem = get_viagem(db, viagem_id)
     if db_viagem:
-        db_viagem.data_hora_real_chegada = _utcnow_naive()
+        db_viagem.data_hora_real_chegada = data_hora_real_chegada or _utcnow_naive()
         db_viagem.status = "finalizada"
         if km_chegada is not None and db_viagem.transporte:
             db_viagem.transporte.km_chegada = km_chegada

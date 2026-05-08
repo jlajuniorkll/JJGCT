@@ -79,7 +79,13 @@ const DetalhesViagem = () => {
 
   const canFinish =
     trip.status === 'em_andamento' &&
-    (trip.atividades || []).every((a) => a.status === 'finalizada');
+    (trip.atividades || []).every((a) => {
+      const status = String(a?.status || '');
+      const started = !!a?.inicio;
+      if (status === 'finalizada') return true;
+      if (!started && status === 'pendente') return true;
+      return false;
+    });
   const canEdit = !blockedStatuses.includes(trip.status);
   const canMutateActivitiesExpenses = activityExpenseAllowedStatuses.includes(trip.status);
   const canRegisterDeparture = trip.status === 'planejada' && (

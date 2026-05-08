@@ -792,7 +792,11 @@ def confirmar_acao_ia(
             raise HTTPException(status_code=400, detail="A chegada só pode ser registrada para viagens em andamento")
 
         for atividade in getattr(db_viagem, "atividades", []) or []:
-            if str(getattr(atividade, "status", "") or "") != "finalizada":
+            status = str(getattr(atividade, "status", "") or "")
+            started = getattr(atividade, "inicio", None) is not None
+            if status in {"ativa", "pausada"}:
+                raise HTTPException(status_code=400, detail=f"A atividade '{atividade.descricao}' ainda não foi finalizada.")
+            if started and status != "finalizada":
                 raise HTTPException(status_code=400, detail=f"A atividade '{atividade.descricao}' ainda não foi finalizada.")
 
         cfg = crud.get_app_config(db)

@@ -217,9 +217,13 @@ def registrar_chegada(
     if db_viagem.status != "em_andamento":
         raise HTTPException(status_code=400, detail="A chegada só pode ser registrada para viagens em andamento")
 
-    # Regra: Todas as atividades devem estar encerradas
-    for atividade in db_viagem.atividades:
-        if atividade.status != "finalizada":
+    # Regra: Não pode haver atividade em execução/pausada; atividades nunca iniciadas (pendentes sem inicio) não bloqueiam.
+    for atividade in getattr(db_viagem, "atividades", []) or []:
+        status = str(getattr(atividade, "status", "") or "")
+        started = getattr(atividade, "inicio", None) is not None
+        if status in {"ativa", "pausada"}:
+            raise HTTPException(status_code=400, detail=f"A atividade '{atividade.descricao}' ainda não foi finalizada.")
+        if started and status != "finalizada":
             raise HTTPException(status_code=400, detail=f"A atividade '{atividade.descricao}' ainda não foi finalizada.")
 
     # Regra: KM final obrigatório se for carro empresa ou próprio
