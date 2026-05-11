@@ -49,6 +49,7 @@ export const tripService = {
   get: (id) => api.get(`/viagens/${id}`),
   update: (id, data) => api.put(`/viagens/${id}`, data),
   cancel: (id) => api.post(`/viagens/${id}/cancelar`),
+  downloadReceiptsZip: (id) => api.get(`/viagens/${id}/comprovantes.zip`, { responseType: 'blob' }),
   registerDeparture: (id, { km_saida, motorista_id, data_hora_real_saida } = {}) => {
     const params = {};
     if (km_saida !== undefined && km_saida !== null && `${km_saida}`.trim() !== '') {

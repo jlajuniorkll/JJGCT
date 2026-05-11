@@ -13,6 +13,7 @@ import {
   Plus,
   CheckCircle,
   FileText,
+  Download,
   Navigation,
   XCircle,
   Pencil,
@@ -94,6 +95,7 @@ const DetalhesViagem = () => {
   );
   const clientes = trip?.clientes || [];
   const clientesTexto = clientes.join(', ') || 'Viagem';
+  const hasReceipts = (trip?.despesas || []).some((d) => !!d?.comprovante_url);
   const atividadesOrdenadas = [...(trip.atividades || [])].sort((a, b) => {
     const ao = Number.isFinite(a?.ordem) ? a.ordem : 999999;
     const bo = Number.isFinite(b?.ordem) ? b.ordem : 999999;
@@ -316,11 +318,52 @@ const DetalhesViagem = () => {
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <DollarSign className="text-emerald-600" size={20} /> Despesas
               </h2>
-              {canMutateActivitiesExpenses && (
-                <Link to={`/viagens/${trip.id}/despesa`} className="text-emerald-600 font-bold text-sm flex items-center gap-1 hover:underline">
-                  <Plus size={16} /> Adicionar Despesa
-                </Link>
-              )}
+              <div className="flex items-center gap-3">
+                {hasReceipts ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await tripService.downloadReceiptsZip(trip.id);
+                        const blob = new Blob([res.data], { type: 'application/zip' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `comprovantes_viagem_${trip.id}.zip`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                      } catch (err) {
+                        let msg = err?.response?.data?.detail;
+                        try {
+                          const data = err?.response?.data;
+                          if (data instanceof Blob) {
+                            const text = await data.text();
+                            try {
+                              const obj = JSON.parse(text);
+                              msg = obj?.detail || text;
+                            } catch {
+                              msg = text;
+                            }
+                          }
+                        } catch {
+                          0;
+                        }
+                        alert(msg || 'Não foi possível baixar os comprovantes');
+                      }
+                    }}
+                    className="text-gray-700 font-bold text-sm flex items-center gap-1 hover:underline"
+                  >
+                    <Download size={16} /> Baixar comprovantes
+                  </button>
+                ) : null}
+                {canMutateActivitiesExpenses ? (
+                  <Link to={`/viagens/${trip.id}/despesa`} className="text-emerald-600 font-bold text-sm flex items-center gap-1 hover:underline">
+                    <Plus size={16} /> Adicionar Despesa
+                  </Link>
+                ) : null}
+              </div>
             </div>
 
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">

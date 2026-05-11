@@ -1,14 +1,22 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import re
+import tempfile
+import zipfile
+from starlette.background import BackgroundTask
 
 from ... import crud, models, schemas
 from ...database import SessionLocal
 
 router = APIRouter()
+
+UPLOADS_DIR = Path("uploads")
 
 
 def _ensure_utc(dt):
@@ -25,6 +33,24 @@ def _to_utc_naive(dt: datetime | None):
     if getattr(dt, "tzinfo", None) is None:
         return dt
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+def _safe_upload_fs_path(comprovante_url: str | None) -> Path | None:
+    if not comprovante_url:
+        return None
+    s = str(comprovante_url).strip()
+    if not s:
+        return None
+    p = Path(s)
+    filename = p.name
+    if not filename or filename in {".", ".."}:
+        return None
+    return UPLOADS_DIR / filename
+
+
+def _sanitize_filename(text: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9._-]+", "_", str(text or "").strip())
+    s = s.strip("._-")
+    return s[:80] if s else "arquivo"
 
 
 def _normalize_viagem(db_viagem):
@@ -244,6 +270,60 @@ def registrar_chegada(
             km_chegada=km_chegada,
             data_hora_real_chegada=chegada_naive_utc,
         )
+    )
+
+
+@router.get("/{viagem_id}/comprovantes.zip")
+def baixar_comprovantes_zip(
+    viagem_id: int,
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
+    if db_viagem is None:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+
+    if x_user_id and x_user_id not in [u.id for u in (getattr(db_viagem, "participantes", None) or [])]:
+        raise HTTPException(status_code=403, detail="Apenas participantes podem acessar comprovantes")
+
+    despesas = getattr(db_viagem, "despesas", None) or []
+    itens: list[tuple[models.Despesa, Path]] = []
+    for d in despesas:
+        p = _safe_upload_fs_path(getattr(d, "comprovante_url", None))
+        if not p:
+            continue
+        if p.exists() and p.is_file():
+            itens.append((d, p))
+
+    if not itens:
+        raise HTTPException(status_code=404, detail="Nenhum comprovante encontrado para esta viagem")
+
+    zf = tempfile.SpooledTemporaryFile(max_size=20 * 1024 * 1024)
+    try:
+        used = set()
+        with zipfile.ZipFile(zf, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+            for despesa, p in itens:
+                ext = p.suffix if p.suffix else ".bin"
+                desc = _sanitize_filename(getattr(despesa, "descricao", "") or "")
+                base = f"{int(despesa.id):06d}_{desc}{ext}"
+                name = base
+                i = 2
+                while name in used:
+                    name = f"{int(despesa.id):06d}_{desc}_{i}{ext}"
+                    i += 1
+                used.add(name)
+                z.write(p, arcname=name)
+        zf.seek(0)
+    except Exception:
+        zf.close()
+        raise
+
+    headers = {"Content-Disposition": f'attachment; filename="comprovantes_viagem_{int(viagem_id)}.zip"'}
+    return StreamingResponse(
+        zf,
+        media_type="application/zip",
+        headers=headers,
+        background=BackgroundTask(zf.close),
     )
 
 @router.get("/{viagem_id}/relatorio", response_model=schemas.RelatorioViagem)
