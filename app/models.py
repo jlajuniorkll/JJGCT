@@ -152,6 +152,7 @@ class AppConfig(Base):
     trip_activity_expense_allowed_statuses = Column(String, default='["em_andamento"]')
     trips_show_all_admin = Column(Boolean, default=True)
     trips_show_all_colaborador = Column(Boolean, default=True)
+    block_transport_edit_for_own_car = Column(Boolean, default=False)
 
 
 class IALog(Base):

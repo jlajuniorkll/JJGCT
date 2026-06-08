@@ -42,8 +42,9 @@ const RegistroSaida = () => {
       const motoristaId = user?.id;
       const requiresKm = ['carro empresa', 'carro próprio'].includes(trip.meio_transporte) 
         && trip.transporte?.motorista_id === motoristaId;
+      const isKmEditBlocked = appConfig?.block_transport_edit_for_own_car && trip.meio_transporte === 'carro próprio';
 
-      if (requiresKm && !kmSaida) {
+      if (requiresKm && !kmSaida && !isKmEditBlocked) {
         alert('KM de saída é obrigatório para o motorista.');
         return;
       }
@@ -61,7 +62,7 @@ const RegistroSaida = () => {
       }
 
       await tripService.registerDeparture(id, { 
-        km_saida: requiresKm ? kmSaida : undefined, 
+        km_saida: (requiresKm && !isKmEditBlocked) ? kmSaida : undefined, 
         motorista_id: motoristaId,
         data_hora_real_saida: dataHoraSaidaISO,
       });
@@ -78,6 +79,7 @@ const RegistroSaida = () => {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isMotorista = user?.id && trip?.transporte?.motorista_id === user.id;
   const showKmField = ['carro empresa', 'carro próprio'].includes(trip.meio_transporte) && isMotorista;
+  const isKmEditBlocked = appConfig?.block_transport_edit_for_own_car && trip.meio_transporte === 'carro próprio';
   const allowManualDepartureDatetime = !!appConfig?.trip_allow_manual_departure_datetime;
 
   return (
@@ -154,15 +156,23 @@ const RegistroSaida = () => {
 
             {showKmField && (
               <div className="p-4 bg-white rounded-2xl border border-gray-100 space-y-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-600 uppercase tracking-widest">
+                <label className="flex items-center gap-2 text-xs font-bold text-gray-600 uppercase tracking-wider">
                   <Car size={14} /> KM de Saída (Obrigatório para o motorista)
                 </label>
+                {isKmEditBlocked && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-2 mb-2">
+                    <p className="text-xs font-medium text-yellow-800">
+                      Edição do KM está bloqueada para "carro próprio" conforme configuração do sistema.
+                    </p>
+                  </div>
+                )}
                 <input 
                   type="number"
                   value={kmSaida}
                   onChange={(e) => setKmSaida(e.target.value)}
                   placeholder="Ex: 15230"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  disabled={isKmEditBlocked}
+                  className={`w-full px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold ${isKmEditBlocked ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-gray-50 border border-gray-200'}`}
                 />
               </div>
             )}

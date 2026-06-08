@@ -25,6 +25,7 @@ def ensure_app_config_schema(engine):
         ("report_include_receipts", "boolean", "true", True),
         ("trip_allow_manual_departure_datetime", "boolean", "false", True),
         ("trip_allow_manual_arrival_datetime", "boolean", "false", True),
+        ("block_transport_edit_for_own_car", "boolean", "false", True),
     ]
 
     with engine.begin() as conn:
@@ -260,6 +261,9 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
 
     if payload.trips_show_all_colaborador is not None:
         cfg.trips_show_all_colaborador = payload.trips_show_all_colaborador
+
+    if payload.block_transport_edit_for_own_car is not None:
+        cfg.block_transport_edit_for_own_car = payload.block_transport_edit_for_own_car
 
     db.commit()
     db.refresh(cfg)

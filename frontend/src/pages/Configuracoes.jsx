@@ -45,6 +45,7 @@ const Configuracoes = () => {
   const [activityExpenseAllowedStatuses, setActivityExpenseAllowedStatuses] = useState(['em_andamento']);
   const [tripsShowAllAdmin, setTripsShowAllAdmin] = useState(true);
   const [tripsShowAllColaborador, setTripsShowAllColaborador] = useState(true);
+  const [blockTransportEditForOwnCar, setBlockTransportEditForOwnCar] = useState(false);
   const [iaProvider, setIaProvider] = useState('anthropic');
   const [iaModelAnthropic, setIaModelAnthropic] = useState('claude-sonnet-4-6');
   const [iaModelGemini, setIaModelGemini] = useState('gemini-2.5-flash');
@@ -99,6 +100,7 @@ const Configuracoes = () => {
       );
       setTripsShowAllAdmin(data.trips_show_all_admin !== false);
       setTripsShowAllColaborador(data.trips_show_all_colaborador !== false);
+      setBlockTransportEditForOwnCar(!!data.block_transport_edit_for_own_car);
       setIaProvider(String(data.ia_provider || 'anthropic'));
       setIaModelAnthropic(String(data.ia_model_anthropic || 'claude-sonnet-4-6'));
       setIaModelGemini(String(data.ia_model_gemini || 'gemini-2.5-flash'));
@@ -164,6 +166,7 @@ const Configuracoes = () => {
         trip_activity_expense_allowed_statuses: activityExpenseAllowedStatuses,
         trips_show_all_admin: tripsShowAllAdmin,
         trips_show_all_colaborador: tripsShowAllColaborador,
+        block_transport_edit_for_own_car: blockTransportEditForOwnCar,
       });
       setAnthropicApiKeyInput('');
       setGeminiApiKeyInput('');
@@ -308,6 +311,20 @@ const Configuracoes = () => {
                 type="checkbox"
                 checked={tripAllowManualArrivalDatetime}
                 onChange={(e) => setTripAllowManualArrivalDatetime(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer">
+              <div>
+                <p className="text-sm font-black text-gray-800">Bloquear edição de dados de transporte para carro próprio</p>
+                <p className="text-xs font-bold text-gray-500">
+                  Quando ativado, os campos de veículo, motorista, km de saída e km de chegada não poderão ser editados em viagens com meio de transporte "carro próprio".
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={blockTransportEditForOwnCar}
+                onChange={(e) => setBlockTransportEditForOwnCar(e.target.checked)}
                 className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
               />
             </label>

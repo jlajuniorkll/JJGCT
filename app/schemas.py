@@ -240,6 +240,7 @@ class AppConfig(BaseModel):
     trip_activity_expense_allowed_statuses: List[str]
     trips_show_all_admin: bool
     trips_show_all_colaborador: bool
+    block_transport_edit_for_own_car: bool
 
 
 class AppConfigUpdate(BaseModel):
@@ -258,6 +259,7 @@ class AppConfigUpdate(BaseModel):
     trip_activity_expense_allowed_statuses: Optional[List[str]] = None
     trips_show_all_admin: Optional[bool] = None
     trips_show_all_colaborador: Optional[bool] = None
+    block_transport_edit_for_own_car: Optional[bool] = None
 
 
 class ChatHistoricoItem(BaseModel):

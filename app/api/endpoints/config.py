@@ -80,6 +80,7 @@ def _to_schema(cfg, is_admin: bool) -> schemas.AppConfig:
         trip_activity_expense_allowed_statuses=[str(s) for s in mutation_statuses],
         trips_show_all_admin=bool(getattr(cfg, "trips_show_all_admin", True)),
         trips_show_all_colaborador=bool(getattr(cfg, "trips_show_all_colaborador", True)),
+        block_transport_edit_for_own_car=bool(getattr(cfg, "block_transport_edit_for_own_car", False)),
     )
 
 

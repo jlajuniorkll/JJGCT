@@ -22,6 +22,7 @@ const EditarViagem = () => {
   const [availableUsers, setAvailableUsers] = useState([]);
   const [availableVehicles, setAvailableVehicles] = useState([]);
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
+  const [config, setConfig] = useState(null);
 
   const [formData, setFormData] = useState({
     motivo: '',
@@ -42,6 +43,10 @@ const EditarViagem = () => {
     [formData.meio_transporte],
   );
 
+  const isTransportEditBlocked = useMemo(() => {
+    return config?.block_transport_edit_for_own_car && formData.meio_transporte === 'carro próprio';
+  }, [config, formData.meio_transporte]);
+
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
@@ -59,6 +64,7 @@ const EditarViagem = () => {
         setAvailableVehicles(vehiclesRes.data);
 
         const cfg = cfgRes?.data;
+        setConfig(cfg);
         if (cfg?.trip_edit_blocked_statuses && Array.isArray(cfg.trip_edit_blocked_statuses)) {
           setBlockedStatuses(cfg.trip_edit_blocked_statuses);
         }
@@ -283,12 +289,20 @@ const EditarViagem = () => {
               <h3 className="font-bold text-blue-800 flex items-center gap-2">
                 <Car size={18} /> Dados do Transporte
               </h3>
+              {isTransportEditBlocked && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                  <p className="text-sm font-medium text-yellow-800">
+                    Edição dos dados de transporte está bloqueada para "carro próprio" conforme configuração do sistema.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">Veículo</label>
                   <select
                     required
-                    className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isTransportEditBlocked}
+                    className={`w-full px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isTransportEditBlocked ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white border border-blue-200'}`}
                     value={formData.transporte.veiculo_id}
                     onChange={(e) =>
                       setFormData({ ...formData, transporte: { ...formData.transporte, veiculo_id: e.target.value } })
@@ -306,7 +320,8 @@ const EditarViagem = () => {
                   <label className="block text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">Motorista</label>
                   <select
                     required
-                    className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isTransportEditBlocked}
+                    className={`w-full px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isTransportEditBlocked ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white border border-blue-200'}`}
                     value={formData.transporte.motorista_id}
                     onChange={(e) =>
                       setFormData({ ...formData, transporte: { ...formData.transporte, motorista_id: e.target.value } })

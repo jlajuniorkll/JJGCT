@@ -39,11 +39,12 @@ const RegistroChegada = () => {
 
   const handleConfirm = async () => {
     try {
-      if (['carro empresa', 'carro próprio'].includes(trip.meio_transporte) && !kmChegada) {
+      const isKmEditBlocked = appConfig?.block_transport_edit_for_own_car && trip.meio_transporte === 'carro próprio';
+      if (['carro empresa', 'carro próprio'].includes(trip.meio_transporte) && !kmChegada && !isKmEditBlocked) {
         alert('KM de chegada é obrigatório.');
         return;
       }
-      const km = requiresKm ? kmChegada : undefined;
+      const km = (requiresKm && !isKmEditBlocked) ? kmChegada : undefined;
 
       let dataHoraChegadaISO = undefined;
       if (allowManualArrivalDatetime && useManualArrivalDatetime) {
@@ -67,6 +68,7 @@ const RegistroChegada = () => {
   if (!trip) return <div className="p-8 text-center">Viagem não encontrada.</div>;
 
   const requiresKm = ['carro empresa', 'carro próprio'].includes(trip.meio_transporte);
+  const isKmEditBlocked = appConfig?.block_transport_edit_for_own_car && trip.meio_transporte === 'carro próprio';
 
   return (
     <div className="max-w-md mx-auto space-y-8 animate-fade-in py-12">
@@ -141,15 +143,23 @@ const RegistroChegada = () => {
 
             {requiresKm && (
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-emerald-700 uppercase tracking-widest">
+                <label className="flex items-center gap-2 text-xs font-bold text-emerald-700 uppercase tracking-wider">
                   <Car size={14} /> KM de Chegada (Obrigatório)
                 </label>
+                {isKmEditBlocked && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-2">
+                    <p className="text-xs font-medium text-yellow-800">
+                      Edição do KM está bloqueada para "carro próprio" conforme configuração do sistema.
+                    </p>
+                  </div>
+                )}
                 <input 
                   type="number" 
                   value={kmChegada}
                   onChange={(e) => setKmChegada(e.target.value)}
                   placeholder="Ex: 15420"
-                  className="w-full px-4 py-3 bg-white border border-emerald-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg"
+                  disabled={isKmEditBlocked}
+                  className={`w-full px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg ${isKmEditBlocked ? 'bg-gray-100 border border-gray-300 cursor-not-allowed' : 'bg-white border border-emerald-200'}`}
                 />
                 <p className="text-[10px] text-emerald-600 font-medium">KM inicial registrado: <span className="font-bold">{trip.transporte?.km_saida}</span></p>
               </div>
