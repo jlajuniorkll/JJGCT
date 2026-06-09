@@ -35,6 +35,7 @@ const EditarViagem = () => {
       veiculo_id: '',
       motorista_id: '',
       km_saida: '',
+      km_chegada: '',
     },
   });
 
@@ -80,6 +81,7 @@ const EditarViagem = () => {
             veiculo_id: t.transporte?.veiculo_id ? String(t.transporte.veiculo_id) : '',
             motorista_id: t.transporte?.motorista_id ? String(t.transporte.motorista_id) : '',
             km_saida: t.transporte?.km_saida != null ? String(t.transporte.km_saida) : '',
+            km_chegada: t.transporte?.km_chegada != null ? String(t.transporte.km_chegada) : '',
           },
         });
       } catch (err) {
@@ -155,6 +157,7 @@ const EditarViagem = () => {
       delete payload.transporte;
     } else {
       if (payload.transporte.km_saida === '') delete payload.transporte.km_saida;
+      if (payload.transporte.km_chegada === '') delete payload.transporte.km_chegada;
     }
 
     setSaving(true);
@@ -336,6 +339,32 @@ const EditarViagem = () => {
                         </option>
                       ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">KM Inicial</label>
+                  <input
+                    type="number"
+                    disabled={isTransportEditBlocked}
+                    className={`w-full px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isTransportEditBlocked ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white border border-blue-200'}`}
+                    value={formData.transporte.km_saida}
+                    onChange={(e) =>
+                      setFormData({ ...formData, transporte: { ...formData.transporte, km_saida: e.target.value } })
+                    }
+                    placeholder="Ex: 15000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">KM Final</label>
+                  <input
+                    type="number"
+                    disabled={isTransportEditBlocked}
+                    className={`w-full px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isTransportEditBlocked ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white border border-blue-200'}`}
+                    value={formData.transporte.km_chegada}
+                    onChange={(e) =>
+                      setFormData({ ...formData, transporte: { ...formData.transporte, km_chegada: e.target.value } })
+                    }
+                    placeholder="Ex: 16000"
+                  />
                 </div>
               </div>
             </div>
