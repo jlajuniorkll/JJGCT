@@ -217,20 +217,9 @@ def obter_viagem_detalhes(db: Session, usuario_logado: models.Usuario, args: dic
     incluir_despesas = bool(args.get("incluir_despesas", True))
     incluir_atividades = bool(args.get("incluir_atividades", True))
 
-    v = crud.get_viagem(db, viagem_id)
+    v = crud.get_viagem(db, viagem_id, eager=True)
     if not v:
         return {"erro": "Viagem não encontrada."}
-
-    v.participantes
-    if getattr(v, "transporte", None):
-        _ = v.transporte.veiculo
-        _ = v.transporte.motorista
-    if incluir_despesas:
-        v.despesas
-    if incluir_atividades:
-        v.atividades
-        for a in getattr(v, "atividades", []) or []:
-            a.pausas
 
     return _sanitize_viagem_detalhada(v, incluir_despesas=incluir_despesas, incluir_atividades=incluir_atividades)
 

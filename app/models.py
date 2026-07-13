@@ -4,7 +4,7 @@ from .database import Base
 
 viagem_usuarios = Table('viagem_usuarios', Base.metadata,
     Column('viagem_id', Integer, ForeignKey('viagens.id'), primary_key=True),
-    Column('usuario_id', Integer, ForeignKey('usuarios.id'), primary_key=True)
+    Column('usuario_id', Integer, ForeignKey('usuarios.id'), primary_key=True, index=True)
 )
 
 class Usuario(Base):
@@ -29,7 +29,7 @@ class Veiculo(Base):
 class Viagem(Base):
     __tablename__ = "viagens"
     id = Column(Integer, primary_key=True, index=True)
-    responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
     motivo = Column(String)
     data_hora_prevista_saida = Column(DateTime)
     data_hora_prevista_retorno = Column("data_hora_prevista_chegada", DateTime)
@@ -60,7 +60,7 @@ class Viagem(Base):
 class ViagemCliente(Base):
     __tablename__ = "viagem_clientes"
     id = Column(Integer, primary_key=True, index=True)
-    viagem_id = Column(Integer, ForeignKey("viagens.id", ondelete="CASCADE"))
+    viagem_id = Column(Integer, ForeignKey("viagens.id", ondelete="CASCADE"), index=True)
     nome = Column(String)
     data_criacao = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -69,9 +69,9 @@ class ViagemCliente(Base):
 class TransporteViagem(Base):
     __tablename__ = "transporte_viagem"
     id = Column(Integer, primary_key=True, index=True)
-    viagem_id = Column(Integer, ForeignKey("viagens.id"))
-    veiculo_id = Column(Integer, ForeignKey("veiculos.id"), nullable=True)
-    motorista_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    viagem_id = Column(Integer, ForeignKey("viagens.id"), index=True)
+    veiculo_id = Column(Integer, ForeignKey("veiculos.id"), nullable=True, index=True)
+    motorista_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
     km_saida = Column(Float, nullable=True)
     km_chegada = Column(Float, nullable=True)
     viagem = relationship("Viagem", back_populates="transporte")
@@ -81,14 +81,14 @@ class TransporteViagem(Base):
 class Despesa(Base):
     __tablename__ = "despesas"
     id = Column(Integer, primary_key=True, index=True)
-    viagem_id = Column(Integer, ForeignKey("viagens.id"))
+    viagem_id = Column(Integer, ForeignKey("viagens.id"), index=True)
     valor = Column(Float)
     forma_pagamento = Column(String)
     descricao = Column(String)
     criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
-    pago_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    pago_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
     tipo_pagamento = Column(String, default="INDIVIDUAL")
-    registrado_para_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    registrado_para_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
     comprovante_url = Column(String, nullable=True)
     data_registro = Column(DateTime(timezone=True), server_default=func.now())
     viagem = relationship("Viagem", back_populates="despesas")
@@ -101,8 +101,8 @@ class Despesa(Base):
 class DespesaRateio(Base):
     __tablename__ = "despesa_rateio"
     id = Column(Integer, primary_key=True, index=True)
-    despesa_id = Column(Integer, ForeignKey("despesas.id"))
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"))
+    despesa_id = Column(Integer, ForeignKey("despesas.id"), index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), index=True)
     valor = Column(Float)
     data_criacao = Column(DateTime(timezone=True), server_default=func.now())
     despesa = relationship("Despesa", back_populates="rateios")
@@ -111,8 +111,8 @@ class DespesaRateio(Base):
 class Atividade(Base):
     __tablename__ = "atividades"
     id = Column(Integer, primary_key=True, index=True)
-    viagem_id = Column(Integer, ForeignKey("viagens.id"))
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"))
+    viagem_id = Column(Integer, ForeignKey("viagens.id"), index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), index=True)
     ordem = Column(Integer, nullable=False)
     inicio = Column(DateTime, nullable=True)
     fim = Column(DateTime, nullable=True)
@@ -125,7 +125,7 @@ class Atividade(Base):
 class Pausa(Base):
     __tablename__ = "pausas"
     id = Column(Integer, primary_key=True, index=True)
-    atividade_id = Column(Integer, ForeignKey("atividades.id"))
+    atividade_id = Column(Integer, ForeignKey("atividades.id"), index=True)
     inicio = Column(DateTime)
     fim = Column(DateTime, nullable=True)
     motivo = Column(String)

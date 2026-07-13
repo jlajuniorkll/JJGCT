@@ -1,7 +1,7 @@
 import json
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import or_, func
 from . import models, schemas
 from datetime import datetime, timezone
@@ -10,6 +10,21 @@ from .ia.client import encrypt_secret
 
 def _utcnow_naive():
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _viagem_eager_options():
+    # Espelha exatamente o que schemas.Viagem/obter_viagem_detalhes serializam,
+    # evitando N+1: coleções via selectinload (evita produto cartesiano ao
+    # combinar duas relações um-para-muitos), muitos-para-um via joinedload.
+    return (
+        selectinload(models.Viagem.participantes),
+        selectinload(models.Viagem.clientes_itens),
+        joinedload(models.Viagem.transporte).joinedload(models.TransporteViagem.veiculo),
+        joinedload(models.Viagem.transporte).joinedload(models.TransporteViagem.motorista),
+        selectinload(models.Viagem.despesas).joinedload(models.Despesa.criado_por),
+        selectinload(models.Viagem.despesas).selectinload(models.Despesa.rateios),
+        selectinload(models.Viagem.atividades).selectinload(models.Atividade.pausas),
+    )
 
 
 def ensure_app_config_schema(engine):
@@ -294,12 +309,16 @@ def delete_atividade(db: Session, atividade_id: int):
     return db_atividade
 
 # Funções CRUD para Viagem
-def get_viagem(db: Session, viagem_id: int):
-    return db.query(models.Viagem).filter(models.Viagem.id == viagem_id).first()
+def get_viagem(db: Session, viagem_id: int, eager: bool = False):
+    q = db.query(models.Viagem)
+    if eager:
+        q = q.options(*_viagem_eager_options())
+    return q.filter(models.Viagem.id == viagem_id).first()
 
 def get_viagens(db: Session, skip: int = 0, limit: int = 100):
     return (
         db.query(models.Viagem)
+        .options(*_viagem_eager_options())
         .order_by(models.Viagem.data_criacao.desc())
         .offset(skip)
         .limit(limit)
@@ -307,7 +326,7 @@ def get_viagens(db: Session, skip: int = 0, limit: int = 100):
     )
 
 
-def get_viagens_for_user(db: Session, user_id: int, skip: int = 0, limit: int = 100, order: str = "desc"):
+def get_viagens_for_user(db: Session, user_id: int, skip: int = 0, limit: int = 100, order: str = "desc", eager: bool = False):
     q = db.query(models.Viagem).filter(
         or_(
             models.Viagem.responsavel_id == user_id,
@@ -315,6 +334,8 @@ def get_viagens_for_user(db: Session, user_id: int, skip: int = 0, limit: int = 
             models.Viagem.transporte.has(models.TransporteViagem.motorista_id == user_id),
         )
     )
+    if eager:
+        q = q.options(*_viagem_eager_options())
     if order == "asc":
         q = q.order_by(models.Viagem.data_criacao.asc())
     else:

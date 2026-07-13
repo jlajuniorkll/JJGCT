@@ -121,20 +121,21 @@ def read_viagens(
     if show_all or not user:
         viagens = (
             db.query(models.Viagem)
+            .options(*crud._viagem_eager_options())
             .order_by(models.Viagem.data_criacao.asc() if order == "asc" else models.Viagem.data_criacao.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
     else:
-        viagens = crud.get_viagens_for_user(db, user_id=user.id, skip=skip, limit=limit, order=order)
+        viagens = crud.get_viagens_for_user(db, user_id=user.id, skip=skip, limit=limit, order=order, eager=True)
     for v in viagens:
         _normalize_viagem(v)
     return viagens
 
 @router.get("/{viagem_id}", response_model=schemas.Viagem)
 def read_viagem(viagem_id: int, db: Session = Depends(get_db)):
-    db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
+    db_viagem = crud.get_viagem(db, viagem_id=viagem_id, eager=True)
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
     return _normalize_viagem(db_viagem)
@@ -328,14 +329,9 @@ def baixar_comprovantes_zip(
 
 @router.get("/{viagem_id}/relatorio", response_model=schemas.RelatorioViagem)
 def relatorio_viagem(viagem_id: int, db: Session = Depends(get_db)):
-    db_viagem = crud.get_viagem(db, viagem_id=viagem_id)
+    db_viagem = crud.get_viagem(db, viagem_id=viagem_id, eager=True)
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
-
-    db_viagem.participantes
-    if db_viagem.transporte:
-        db_viagem.transporte.veiculo
-        db_viagem.transporte.motorista
 
     distancia_percorrida = 0
     if db_viagem.transporte and db_viagem.transporte.km_chegada and db_viagem.transporte.km_saida:
