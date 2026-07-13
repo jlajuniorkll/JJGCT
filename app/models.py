@@ -15,6 +15,7 @@ class Usuario(Base):
     senha = Column(String)
     tipousuario = Column(String)
     tem_cnh = Column(Boolean, default=False)
+    ativo = Column(Boolean, default=True, nullable=False)
     data_criacao = Column(DateTime(timezone=True), server_default=func.now())
     viagens = relationship("Viagem", secondary=viagem_usuarios, back_populates="participantes")
 
@@ -25,6 +26,7 @@ class Veiculo(Base):
     modelo = Column(String)
     marca = Column(String)
     ano = Column(Integer)
+    ativo = Column(Boolean, default=True, nullable=False)
 
 class Viagem(Base):
     __tablename__ = "viagens"
@@ -153,6 +155,7 @@ class AppConfig(Base):
     trips_show_all_admin = Column(Boolean, default=True)
     trips_show_all_colaborador = Column(Boolean, default=True)
     block_transport_edit_for_own_car = Column(Boolean, default=False)
+    allow_admin_delete_viagem = Column(Boolean, default=False)
 
 
 class IALog(Base):

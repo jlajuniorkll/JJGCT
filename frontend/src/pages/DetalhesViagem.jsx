@@ -25,7 +25,7 @@ import { ptBR } from 'date-fns/locale';
 const DetalhesViagem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, appConfig } = useAuth();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [blockedStatuses, setBlockedStatuses] = useState(['em_andamento', 'finalizada', 'cancelada']);
@@ -93,6 +93,7 @@ const DetalhesViagem = () => {
     (user?.id && trip?.responsavel_id === user.id) ||
     (user?.id && trip?.transporte?.motorista_id === user.id)
   );
+  const canDeleteTrip = user?.tipousuario === 'admin' && !!appConfig?.allow_admin_delete_viagem;
   const clientes = trip?.clientes || [];
   const clientesTexto = clientes.join(', ') || 'Viagem';
   const hasReceipts = (trip?.despesas || []).some((d) => !!d?.comprovante_url);
@@ -158,6 +159,27 @@ const DetalhesViagem = () => {
               className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-[0.98] flex items-center gap-2"
             >
               <XCircle size={20} /> Cancelar Viagem
+            </button>
+          )}
+          {canDeleteTrip && (
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = window.confirm(
+                  'Excluir esta viagem?\n\nEsta ação é permanente e vai apagar despesas, atividades e comprovantes desta viagem. Não pode ser desfeita.'
+                );
+                if (!ok) return;
+                try {
+                  await tripService.remove(trip.id);
+                  navigate('/viagens');
+                } catch (err) {
+                  console.error(err);
+                  alert(err?.response?.data?.detail || 'Erro ao excluir viagem');
+                }
+              }}
+              className="bg-white hover:bg-red-50 text-red-600 px-6 py-3 rounded-xl font-bold shadow-sm border border-red-200 transition-all active:scale-[0.98] flex items-center gap-2"
+            >
+              <Trash2 size={20} /> Excluir Viagem
             </button>
           )}
           {trip.status === 'planejada' && (

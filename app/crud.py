@@ -41,6 +41,7 @@ def ensure_app_config_schema(engine):
         ("trip_allow_manual_departure_datetime", "boolean", "false", True),
         ("trip_allow_manual_arrival_datetime", "boolean", "false", True),
         ("block_transport_edit_for_own_car", "boolean", "false", True),
+        ("allow_admin_delete_viagem", "boolean", "false", True),
     ]
 
     with engine.begin() as conn:
@@ -82,6 +83,55 @@ def ensure_app_config_schema(engine):
                 )
             return
 
+
+def ensure_usuarios_veiculos_schema(engine):
+    dialect = engine.dialect.name
+    tables = {
+        "usuarios": [("ativo", "boolean", "true", True)],
+        "veiculos": [("ativo", "boolean", "true", True)],
+    }
+
+    with engine.begin() as conn:
+        if dialect == "sqlite":
+            for table, columns in tables.items():
+                existing = set()
+                try:
+                    rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+                    existing = {r[1] for r in rows}
+                except Exception:
+                    continue
+
+                for name, coltype, default_sql, not_null in columns:
+                    if name in existing:
+                        continue
+                    pieces = [f"ALTER TABLE {table} ADD COLUMN {name} {coltype}"]
+                    if default_sql is not None:
+                        pieces.append(f"DEFAULT {default_sql}")
+                    if not_null:
+                        pieces.append("NOT NULL")
+                    conn.execute(text(" ".join(pieces)))
+            return
+
+        if dialect == "postgresql":
+            for table, columns in tables.items():
+                for name, coltype, default_sql, not_null in columns:
+                    default_part = f"DEFAULT {default_sql}" if default_sql is not None else ""
+                    not_null_part = "NOT NULL" if not_null else ""
+                    conn.execute(
+                        text(
+                            "DO $$\n"
+                            "BEGIN\n"
+                            "  IF NOT EXISTS (\n"
+                            "    SELECT 1 FROM information_schema.columns\n"
+                            f"    WHERE table_name = '{table}' AND column_name = '{name}'\n"
+                            "  ) THEN\n"
+                            f"    ALTER TABLE {table} ADD COLUMN {name} {coltype} {default_part} {not_null_part};\n"
+                            "  END IF;\n"
+                            "END $$;"
+                        )
+                    )
+            return
+
 # Funções CRUD para Usuário
 def get_usuario(db: Session, usuario_id: int):
     return db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
@@ -89,17 +139,21 @@ def get_usuario(db: Session, usuario_id: int):
 def get_usuario_by_email(db: Session, email: str):
     return db.query(models.Usuario).filter(models.Usuario.email == email).first()
 
-def get_usuarios(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Usuario).offset(skip).limit(limit).all()
+def get_usuarios(db: Session, skip: int = 0, limit: int = 100, apenas_ativos: bool = False):
+    q = db.query(models.Usuario)
+    if apenas_ativos:
+        q = q.filter(models.Usuario.ativo == True)
+    return q.offset(skip).limit(limit).all()
 
 def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
     # Em um ambiente de produção, a senha deve ser "hasheada"
     db_usuario = models.Usuario(
-        email=usuario.email, 
-        senha=usuario.senha, 
-        nome=usuario.nome, 
+        email=usuario.email,
+        senha=usuario.senha,
+        nome=usuario.nome,
         tipousuario=usuario.tipousuario,
-        tem_cnh=usuario.tem_cnh
+        tem_cnh=usuario.tem_cnh,
+        ativo=usuario.ativo,
     )
     db.add(db_usuario)
     db.commit()
@@ -126,6 +180,9 @@ def update_usuario(db: Session, usuario_id: int, usuario: schemas.UsuarioUpdate)
 
     if usuario.tem_cnh is not None:
         db_usuario.tem_cnh = usuario.tem_cnh
+
+    if usuario.ativo is not None:
+        db_usuario.ativo = usuario.ativo
 
     if usuario.senha is not None:
         db_usuario.senha = usuario.senha
@@ -155,8 +212,11 @@ def get_veiculo(db: Session, veiculo_id: int):
 def get_veiculo_by_placa(db: Session, placa: str):
     return db.query(models.Veiculo).filter(models.Veiculo.placa == placa).first()
 
-def get_veiculos(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Veiculo).offset(skip).limit(limit).all()
+def get_veiculos(db: Session, skip: int = 0, limit: int = 100, apenas_ativos: bool = False):
+    q = db.query(models.Veiculo)
+    if apenas_ativos:
+        q = q.filter(models.Veiculo.ativo == True)
+    return q.offset(skip).limit(limit).all()
 
 def create_veiculo(db: Session, veiculo: schemas.VeiculoCreate):
     db_veiculo = models.Veiculo(**veiculo.dict())
@@ -185,6 +245,9 @@ def update_veiculo(db: Session, veiculo_id: int, veiculo: schemas.VeiculoUpdate)
 
     if veiculo.ano is not None:
         db_veiculo.ano = veiculo.ano
+
+    if veiculo.ativo is not None:
+        db_veiculo.ativo = veiculo.ativo
 
     db.commit()
     db.refresh(db_veiculo)
@@ -279,6 +342,9 @@ def update_app_config(db: Session, payload: schemas.AppConfigUpdate):
 
     if payload.block_transport_edit_for_own_car is not None:
         cfg.block_transport_edit_for_own_car = payload.block_transport_edit_for_own_car
+
+    if payload.allow_admin_delete_viagem is not None:
+        cfg.allow_admin_delete_viagem = payload.allow_admin_delete_viagem
 
     db.commit()
     db.refresh(cfg)
@@ -533,6 +599,44 @@ def cancelar_viagem(db: Session, viagem_id: int):
         db.refresh(db_viagem)
     return db_viagem
 
+
+def delete_viagem(db: Session, viagem_id: int) -> list[str] | None:
+    """Apaga a viagem e todos os registros dependentes. Retorna a lista de
+    comprovante_url das despesas apagadas (para o endpoint limpar os arquivos
+    em disco), ou None se a viagem não existir."""
+    db_viagem = get_viagem(db, viagem_id, eager=True)
+    if not db_viagem:
+        return None
+
+    comprovantes = [
+        d.comprovante_url for d in (db_viagem.despesas or []) if d.comprovante_url
+    ]
+
+    # Apaga objeto a objeto (não em bulk) para o SQLAlchemy rastrear cada
+    # remoção no unit-of-work da sessão. Um DELETE em bulk (Query.delete)
+    # não sincroniza as coleções já carregadas pelo eager load, e ao deletar
+    # a viagem depois o SQLAlchemy tenta fazer UPDATE (nulificar FK) nos
+    # filhos "aparentemente" ainda associados — que já não existem mais no
+    # banco — resultando em StaleDataError.
+    for despesa in list(db_viagem.despesas or []):
+        for rateio in list(despesa.rateios or []):
+            db.delete(rateio)
+        db.delete(despesa)
+
+    for atividade in list(db_viagem.atividades or []):
+        for pausa in list(atividade.pausas or []):
+            db.delete(pausa)
+        db.delete(atividade)
+
+    if db_viagem.transporte is not None:
+        db.delete(db_viagem.transporte)
+
+    db_viagem.participantes = []
+
+    db.delete(db_viagem)
+    db.commit()
+    return comprovantes
+
 # Funções CRUD para Despesa
 def get_despesa(db: Session, despesa_id: int):
     return db.query(models.Despesa).filter(models.Despesa.id == despesa_id).first()
@@ -715,7 +819,7 @@ def reorder_atividades(db: Session, viagem_id: int, atividade_ids: list[int]):
 
 
 def ia_listar_usuarios(db: Session, query: str | None = None, limit: int = 20):
-    q = db.query(models.Usuario)
+    q = db.query(models.Usuario).filter(models.Usuario.ativo == True)
     if query:
         needle = f"%{str(query).strip()}%"
         if needle != "%%":
@@ -725,7 +829,7 @@ def ia_listar_usuarios(db: Session, query: str | None = None, limit: int = 20):
 
 
 def ia_listar_veiculos(db: Session, query: str | None = None, limit: int = 20):
-    q = db.query(models.Veiculo)
+    q = db.query(models.Veiculo).filter(models.Veiculo.ativo == True)
     if query:
         needle = f"%{str(query).strip()}%"
         if needle != "%%":

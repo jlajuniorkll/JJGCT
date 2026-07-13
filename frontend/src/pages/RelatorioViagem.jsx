@@ -14,8 +14,9 @@ import {
   Briefcase,
   Calendar
 } from 'lucide-react';
-import { format, differenceInSeconds } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { gerarRelatorioPDF, formatTimeDiff } from '../utils/relatorioPdf';
 
 const RelatorioViagem = () => {
   const { id } = useParams();
@@ -55,8 +56,25 @@ const RelatorioViagem = () => {
 
   const isImageUrl = (url) => /\.(png|jpe?g|gif|webp)$/i.test(url);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    try {
+      const doc = await gerarRelatorioPDF(report, { includeReceipts, apiBaseURL: api.defaults.baseURL || '' });
+      doc.autoPrint();
+      window.open(doc.output('bloburl'), '_blank');
+    } catch (err) {
+      console.error(err);
+      alert('Não foi possível gerar o PDF para impressão.');
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const doc = await gerarRelatorioPDF(report, { includeReceipts, apiBaseURL: api.defaults.baseURL || '' });
+      doc.save(`relatorio-viagem-${id}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Não foi possível gerar o PDF.');
+    }
   };
 
   return (
@@ -76,7 +94,7 @@ const RelatorioViagem = () => {
             <Printer size={18} /> Imprimir
           </button>
           <button
-            onClick={handlePrint}
+            onClick={handleDownload}
             className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
           >
             <Download size={18} /> PDF
@@ -360,24 +378,6 @@ const RelatorioViagem = () => {
       </div>
     </div>
   );
-};
-
-const formatTimeDiff = (start, end, pausas = []) => {
-  const safeSecondsBetween = (a, b) => Math.max(0, differenceInSeconds(a, b));
-
-  let diff = safeSecondsBetween(end, start);
-
-  pausas.forEach((p) => {
-    if (p.inicio && p.fim) {
-      diff -= safeSecondsBetween(new Date(p.fim), new Date(p.inicio));
-    }
-  });
-
-  diff = Math.max(0, diff);
-
-  const hrs = Math.floor(diff / 3600);
-  const mins = Math.floor((diff % 3600) / 60);
-  return `${hrs}h ${mins}m`;
 };
 
 export default RelatorioViagem;

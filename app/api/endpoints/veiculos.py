@@ -23,8 +23,8 @@ def create_veiculo(veiculo: schemas.VeiculoCreate, db: Session = Depends(get_db)
     return crud.create_veiculo(db=db, veiculo=veiculo)
 
 @router.get("/", response_model=List[schemas.Veiculo])
-def read_veiculos(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    veiculos = crud.get_veiculos(db, skip=skip, limit=limit)
+def read_veiculos(skip: int = 0, limit: int = 100, incluir_inativos: bool = False, db: Session = Depends(get_db)):
+    veiculos = crud.get_veiculos(db, skip=skip, limit=limit, apenas_ativos=not incluir_inativos)
     return veiculos
 
 @router.get("/{veiculo_id}", response_model=schemas.Veiculo)

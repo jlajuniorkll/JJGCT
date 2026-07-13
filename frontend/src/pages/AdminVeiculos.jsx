@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { vehicleService } from '../services/api';
-import { Car, Plus, X, Tag, Hash, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { Car, Plus, X, Tag, Hash, Calendar, Pencil, Trash2, Power, Eye, EyeOff } from 'lucide-react';
 
 const AdminVeiculos = () => {
   const [vehicles, setVehicles] = useState([]);
+  const [showInactive, setShowInactive] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [formData, setFormData] = useState({
@@ -15,16 +16,30 @@ const AdminVeiculos = () => {
 
   const fetchVehicles = useCallback(async () => {
     try {
-      const response = await vehicleService.list();
+      const response = await vehicleService.list(showInactive ? { incluir_inativos: true } : undefined);
       setVehicles(response.data);
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [showInactive]);
 
   useEffect(() => {
     fetchVehicles();
   }, [fetchVehicles]);
+
+  const handleToggleActive = async (vehicle) => {
+    const nextAtivo = !vehicle.ativo;
+    const ok = window.confirm(nextAtivo ? `Ativar o veículo "${vehicle.placa}"?` : `Desativar o veículo "${vehicle.placa}"? Ele deixará de aparecer como opção em novas viagens.`);
+    if (!ok) return;
+
+    try {
+      await vehicleService.update(vehicle.id, { ativo: nextAtivo });
+      fetchVehicles();
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.detail || 'Erro ao atualizar status do veículo');
+    }
+  };
 
   const resetForm = () => {
     setFormData({ placa: '', modelo: '', marca: '', ano: new Date().getFullYear() });
@@ -86,12 +101,22 @@ const AdminVeiculos = () => {
           <h1 className="text-2xl font-bold text-gray-800">Frota de Veículos</h1>
           <p className="text-gray-500 font-medium">Gestão de veículos disponíveis para viagens.</p>
         </div>
-        <button 
-          onClick={openCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center gap-2"
-        >
-          <Plus size={20} /> Novo Veículo
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowInactive((v) => !v)}
+            className="bg-white hover:bg-gray-50 text-gray-700 px-4 py-3 rounded-xl font-bold border border-gray-200 flex items-center gap-2"
+          >
+            {showInactive ? <EyeOff size={18} /> : <Eye size={18} />}
+            {showInactive ? 'Ocultar inativos' : 'Mostrar inativos'}
+          </button>
+          <button
+            onClick={openCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center gap-2"
+          >
+            <Plus size={20} /> Novo Veículo
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -107,6 +132,14 @@ const AdminVeiculos = () => {
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{vehicle.ano}</p>
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(vehicle)}
+                    className={`p-2 rounded-xl border transition-colors ${vehicle.ativo ? 'border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-600' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
+                    aria-label={vehicle.ativo ? 'Desativar' : 'Ativar'}
+                  >
+                    <Power size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => openEdit(vehicle)}
@@ -127,6 +160,9 @@ const AdminVeiculos = () => {
               </div>
               <p className="text-sm font-bold text-gray-600">{vehicle.modelo}</p>
               <p className="text-xs text-gray-400 font-medium">{vehicle.marca}</p>
+              <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${vehicle.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                {vehicle.ativo ? 'Ativo' : 'Inativo'}
+              </span>
             </div>
           </div>
         ))}

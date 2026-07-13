@@ -8,6 +8,7 @@ from .api.endpoints import usuarios, veiculos, viagens, despesas, atividades, au
 
 models.Base.metadata.create_all(bind=engine)
 crud.ensure_app_config_schema(engine)
+crud.ensure_usuarios_veiculos_schema(engine)
 
 app = FastAPI(    
     title="Sistema de Viagens",

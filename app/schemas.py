@@ -8,6 +8,7 @@ class UsuarioBase(BaseModel):
     email: str
     tipousuario: str
     tem_cnh: bool = False
+    ativo: bool = True
 
 class UsuarioCreate(UsuarioBase):
     senha: str
@@ -19,6 +20,7 @@ class UsuarioUpdate(BaseModel):
     senha: Optional[str] = None
     tipousuario: Optional[str] = None
     tem_cnh: Optional[bool] = None
+    ativo: Optional[bool] = None
 
 
 class Usuario(UsuarioBase):
@@ -40,6 +42,7 @@ class VeiculoBase(BaseModel):
     modelo: str
     marca: str
     ano: int
+    ativo: bool = True
 
 class VeiculoCreate(VeiculoBase):
     pass
@@ -50,6 +53,7 @@ class VeiculoUpdate(BaseModel):
     modelo: Optional[str] = None
     marca: Optional[str] = None
     ano: Optional[int] = None
+    ativo: Optional[bool] = None
 
 
 class Veiculo(VeiculoBase):
@@ -241,6 +245,7 @@ class AppConfig(BaseModel):
     trips_show_all_admin: bool
     trips_show_all_colaborador: bool
     block_transport_edit_for_own_car: bool
+    allow_admin_delete_viagem: bool
 
 
 class AppConfigUpdate(BaseModel):
@@ -260,6 +265,7 @@ class AppConfigUpdate(BaseModel):
     trips_show_all_admin: Optional[bool] = None
     trips_show_all_colaborador: Optional[bool] = None
     block_transport_edit_for_own_car: Optional[bool] = None
+    allow_admin_delete_viagem: Optional[bool] = None
 
 
 class ChatHistoricoItem(BaseModel):

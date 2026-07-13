@@ -46,6 +46,7 @@ const Configuracoes = () => {
   const [tripsShowAllAdmin, setTripsShowAllAdmin] = useState(true);
   const [tripsShowAllColaborador, setTripsShowAllColaborador] = useState(true);
   const [blockTransportEditForOwnCar, setBlockTransportEditForOwnCar] = useState(false);
+  const [allowAdminDeleteViagem, setAllowAdminDeleteViagem] = useState(false);
   const [iaProvider, setIaProvider] = useState('anthropic');
   const [iaModelAnthropic, setIaModelAnthropic] = useState('claude-sonnet-4-6');
   const [iaModelGemini, setIaModelGemini] = useState('gemini-2.5-flash');
@@ -101,6 +102,7 @@ const Configuracoes = () => {
       setTripsShowAllAdmin(data.trips_show_all_admin !== false);
       setTripsShowAllColaborador(data.trips_show_all_colaborador !== false);
       setBlockTransportEditForOwnCar(!!data.block_transport_edit_for_own_car);
+      setAllowAdminDeleteViagem(!!data.allow_admin_delete_viagem);
       setIaProvider(String(data.ia_provider || 'anthropic'));
       setIaModelAnthropic(String(data.ia_model_anthropic || 'claude-sonnet-4-6'));
       setIaModelGemini(String(data.ia_model_gemini || 'gemini-2.5-flash'));
@@ -167,6 +169,7 @@ const Configuracoes = () => {
         trips_show_all_admin: tripsShowAllAdmin,
         trips_show_all_colaborador: tripsShowAllColaborador,
         block_transport_edit_for_own_car: blockTransportEditForOwnCar,
+        allow_admin_delete_viagem: allowAdminDeleteViagem,
       });
       setAnthropicApiKeyInput('');
       setGeminiApiKeyInput('');
@@ -536,6 +539,24 @@ const Configuracoes = () => {
                 checked={tripsShowAllColaborador}
                 onChange={(e) => setTripsShowAllColaborador(e.target.checked)}
                 className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5"
+              />
+            </label>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-red-100 p-6 space-y-4">
+            <h2 className="text-sm font-black text-red-500 uppercase tracking-widest">Zona de Risco</h2>
+            <label className="flex items-center justify-between gap-4 p-4 bg-red-50 rounded-2xl border border-red-100 cursor-pointer">
+              <div>
+                <p className="text-sm font-black text-gray-800">Permitir administrador excluir viagem</p>
+                <p className="text-xs font-bold text-gray-500">
+                  Quando ativado, administradores podem excluir uma viagem completa (despesas, atividades e comprovantes), em qualquer status. Ação permanente, com confirmação antes de executar. Não pode ser desfeita.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={allowAdminDeleteViagem}
+                onChange={(e) => setAllowAdminDeleteViagem(e.target.checked)}
+                className="rounded text-red-600 focus:ring-red-500 w-5 h-5"
               />
             </label>
           </div>

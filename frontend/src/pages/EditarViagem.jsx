@@ -3,6 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { tripService, userService, vehicleService, configService } from '../services/api';
 import { ArrowLeft, Car, Plus, Save, Users, X } from 'lucide-react';
 
+const mergeAssigned = (activeList, assignedItems) => {
+  const byId = new Map((activeList || []).map((item) => [item.id, item]));
+  (assignedItems || []).forEach((item) => {
+    if (item && !byId.has(item.id)) {
+      byId.set(item.id, item);
+    }
+  });
+  return Array.from(byId.values());
+};
+
 const toDateTimeLocalValue = (value) => {
   if (!value) return '';
   const d = new Date(value);
@@ -61,8 +71,13 @@ const EditarViagem = () => {
 
         const t = tripRes.data;
         setTrip(t);
-        setAvailableUsers(usersRes.data);
-        setAvailableVehicles(vehiclesRes.data);
+        const assignedUsers = [
+          ...(t.participantes || []),
+          ...(t.transporte?.motorista ? [t.transporte.motorista] : []),
+        ];
+        setAvailableUsers(mergeAssigned(usersRes.data, assignedUsers));
+        const assignedVehicles = t.transporte?.veiculo ? [t.transporte.veiculo] : [];
+        setAvailableVehicles(mergeAssigned(vehiclesRes.data, assignedVehicles));
 
         const cfg = cfgRes?.data;
         setConfig(cfg);
@@ -314,7 +329,7 @@ const EditarViagem = () => {
                     <option value="">Selecione...</option>
                     {availableVehicles.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.placa} - {v.modelo}
+                        {v.placa} - {v.modelo}{v.ativo === false ? ' (inativo)' : ''}
                       </option>
                     ))}
                   </select>
@@ -335,7 +350,7 @@ const EditarViagem = () => {
                       .filter((u) => u.tem_cnh)
                       .map((u) => (
                         <option key={u.id} value={u.id}>
-                          {u.nome}
+                          {u.nome}{u.ativo === false ? ' (inativo)' : ''}
                         </option>
                       ))}
                   </select>
@@ -386,7 +401,9 @@ const EditarViagem = () => {
                     onChange={() => handleToggleParticipant(u.id)}
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm font-bold text-gray-700 truncate">{u.nome}</span>
+                  <span className="text-sm font-bold text-gray-700 truncate">
+                    {u.nome}{u.ativo === false ? <span className="text-gray-400 font-medium"> (inativo)</span> : null}
+                  </span>
                 </label>
               ))}
             </div>

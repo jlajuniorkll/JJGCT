@@ -13,6 +13,7 @@ from starlette.background import BackgroundTask
 
 from ... import crud, models, schemas
 from ...database import SessionLocal
+from .despesas import _safe_remove_upload
 
 router = APIRouter()
 
@@ -185,6 +186,32 @@ def cancelar_viagem(viagem_id: int, db: Session = Depends(get_db)):
     if db_viagem is None:
         raise HTTPException(status_code=404, detail="Viagem not found")
     return db_viagem
+
+
+@router.delete("/{viagem_id}")
+def excluir_viagem(
+    viagem_id: int,
+    x_user_id: int = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    user = crud.get_usuario(db, usuario_id=x_user_id) if x_user_id else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    if user.tipousuario != "admin":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir viagens.")
+
+    cfg = crud.get_app_config(db)
+    if not bool(getattr(cfg, "allow_admin_delete_viagem", False)):
+        raise HTTPException(status_code=400, detail="Exclusão de viagens está desabilitada nas configurações.")
+
+    comprovantes = crud.delete_viagem(db, viagem_id=viagem_id)
+    if comprovantes is None:
+        raise HTTPException(status_code=404, detail="Viagem not found")
+
+    for path in comprovantes:
+        _safe_remove_upload(path)
+
+    return {"sucesso": True}
 
 
 @router.post("/{viagem_id}/registrar-saida", response_model=schemas.Viagem)

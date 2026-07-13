@@ -42,7 +42,7 @@ const AdminIA = () => {
     if (user?.tipousuario !== 'admin') return;
     (async () => {
       try {
-        const res = await userService.list();
+        const res = await userService.list({ incluir_inativos: true });
         setUsuarios(Array.isArray(res.data) ? res.data : []);
       } catch {
         setUsuarios([]);

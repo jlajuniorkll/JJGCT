@@ -24,7 +24,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const userService = {
-  list: () => api.get('/usuarios/'),
+  list: (params) => api.get('/usuarios/', { params }),
   create: (data) => api.post('/usuarios/', data),
   get: (id) => api.get(`/usuarios/${id}`),
   update: (id, data) => api.put(`/usuarios/${id}`, data),
@@ -36,7 +36,7 @@ export const authService = {
 };
 
 export const vehicleService = {
-  list: () => api.get('/veiculos/'),
+  list: (params) => api.get('/veiculos/', { params }),
   create: (data) => api.post('/veiculos/', data),
   get: (id) => api.get(`/veiculos/${id}`),
   update: (id, data) => api.put(`/veiculos/${id}`, data),
@@ -49,6 +49,7 @@ export const tripService = {
   get: (id) => api.get(`/viagens/${id}`),
   update: (id, data) => api.put(`/viagens/${id}`, data),
   cancel: (id) => api.post(`/viagens/${id}/cancelar`),
+  remove: (id) => api.delete(`/viagens/${id}`),
   downloadReceiptsZip: (id) => api.get(`/viagens/${id}/comprovantes.zip`, { responseType: 'blob' }),
   registerDeparture: (id, { km_saida, motorista_id, data_hora_real_saida } = {}) => {
     const params = {};

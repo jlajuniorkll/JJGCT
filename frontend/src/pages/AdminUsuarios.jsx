@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { userService } from '../services/api';
-import { Plus, X, Mail, Shield, User, Pencil, Trash2 } from 'lucide-react';
+import { Plus, X, Mail, Shield, User, Pencil, Trash2, Power, Eye, EyeOff } from 'lucide-react';
 
 const AdminUsuarios = () => {
   const [users, setUsers] = useState([]);
+  const [showInactive, setShowInactive] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
@@ -16,16 +17,30 @@ const AdminUsuarios = () => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const response = await userService.list();
+      const response = await userService.list(showInactive ? { incluir_inativos: true } : undefined);
       setUsers(response.data);
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [showInactive]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  const handleToggleActive = async (user) => {
+    const nextAtivo = !user.ativo;
+    const ok = window.confirm(nextAtivo ? `Ativar o usuário "${user.nome}"?` : `Desativar o usuário "${user.nome}"? Ele deixará de aparecer como opção em novas viagens.`);
+    if (!ok) return;
+
+    try {
+      await userService.update(user.id, { ativo: nextAtivo });
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.detail || 'Erro ao atualizar status do usuário');
+    }
+  };
 
   const resetForm = () => {
     setFormData({ nome: '', email: '', senha: '', tipousuario: 'colaborador', tem_cnh: false });
@@ -90,12 +105,22 @@ const AdminUsuarios = () => {
           <h1 className="text-2xl font-bold text-gray-800">Gerenciar Usuários</h1>
           <p className="text-gray-500 font-medium">Controle de acesso e perfis do sistema.</p>
         </div>
-        <button 
-          onClick={openCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center gap-2 w-full sm:w-auto"
-        >
-          <Plus size={20} /> Novo Usuário
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setShowInactive((v) => !v)}
+            className="bg-white hover:bg-gray-50 text-gray-700 px-4 py-3 rounded-xl font-bold border border-gray-200 flex items-center justify-center gap-2"
+          >
+            {showInactive ? <EyeOff size={18} /> : <Eye size={18} />}
+            {showInactive ? 'Ocultar inativos' : 'Mostrar inativos'}
+          </button>
+          <button
+            onClick={openCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center gap-2 w-full sm:w-auto"
+          >
+            <Plus size={20} /> Novo Usuário
+          </button>
+        </div>
       </header>
 
       <div className="md:hidden space-y-3">
@@ -112,6 +137,14 @@ const AdminUsuarios = () => {
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleToggleActive(u)}
+                  className={`p-2 rounded-xl border transition-colors ${u.ativo ? 'border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-600' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
+                  aria-label={u.ativo ? 'Desativar' : 'Ativar'}
+                >
+                  <Power size={16} />
+                </button>
                 <button
                   type="button"
                   onClick={() => openEdit(u)}
@@ -132,9 +165,14 @@ const AdminUsuarios = () => {
             </div>
 
             <div className="flex items-center justify-between gap-3 mt-4">
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${u.tipousuario === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                {u.tipousuario}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${u.tipousuario === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {u.tipousuario}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${u.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                  {u.ativo ? 'Ativo' : 'Inativo'}
+                </span>
+              </div>
               {u.tem_cnh ? (
                 <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase">CNH: Sim</span>
               ) : (
@@ -153,6 +191,7 @@ const AdminUsuarios = () => {
                 <th className="px-6 py-4">Usuário</th>
                 <th className="px-6 py-4">E-mail</th>
                 <th className="px-6 py-4">Perfil</th>
+                <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">CNH</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
@@ -175,6 +214,11 @@ const AdminUsuarios = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${user.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                      {user.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
                     {user.tem_cnh ? (
                       <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase">Sim</span>
                     ) : (
@@ -183,6 +227,14 @@ const AdminUsuarios = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(user)}
+                        className={`p-2 rounded-xl border transition-colors ${user.ativo ? 'border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-600' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
+                        aria-label={user.ativo ? 'Desativar' : 'Ativar'}
+                      >
+                        <Power size={16} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEdit(user)}
