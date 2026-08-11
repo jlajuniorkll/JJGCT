@@ -271,7 +271,62 @@ function drawFooter(doc, y) {
   return y;
 }
 
-export async function gerarRelatorioPDF(report, { includeReceipts = true, apiBaseURL = '' } = {}) {
+/** Embeds a source page into the current page with optional scale/offset (same-document 2-up). */
+function embedPage(doc, sourcePage, { xoffset = 0, yoffset = 0, xscale = 1, yscale = 1 } = {}) {
+  const out = doc.internal.out.bind(doc.internal);
+  const f2 = doc.internal.f2;
+  const targetPage = doc.internal.getCurrentPageInfo().pageNumber;
+
+  doc.setPage(sourcePage);
+  const sourcePageHeight = parseFloat(doc.internal.getVerticalCoordinateString(0));
+  doc.setPage(targetPage);
+
+  out('q');
+  out(
+    [
+      1,
+      0,
+      0,
+      1,
+      doc.internal.getCoordinateString(xoffset),
+      f2(parseFloat(doc.internal.getVerticalCoordinateString(yoffset)) - sourcePageHeight),
+    ].join(' ') + ' cm'
+  );
+
+  if (xscale !== 1 || yscale !== 1) {
+    out([1, 0, 0, 1, 0, sourcePageHeight].join(' ') + ' cm');
+    out([f2(xscale), 0, 0, f2(yscale), 0, 0].join(' ') + ' cm');
+    out([1, 0, 0, 1, 0, f2(-sourcePageHeight)].join(' ') + ' cm');
+  }
+
+  const pageContent = doc.internal.pages[sourcePage];
+  if (pageContent) pageContent.forEach((e) => out(e));
+  out('Q');
+  return doc;
+}
+
+/** Portrait pages → landscape A4 with two sheets side by side per page. */
+function composeLandscape2Up(doc) {
+  const sourceCount = doc.internal.getNumberOfPages();
+  // Fit portrait A4 (210×297) into landscape height (210): scale = 210/297
+  const fitScale = 210 / 297;
+  const slotW = 210 * fitScale;
+
+  for (let i = 1; i <= sourceCount; i += 2) {
+    doc.addPage('a4', 'landscape');
+    embedPage(doc, i, { xoffset: 0, yoffset: 0, xscale: fitScale, yscale: fitScale });
+    if (i + 1 <= sourceCount) {
+      embedPage(doc, i + 1, { xoffset: slotW, yoffset: 0, xscale: fitScale, yscale: fitScale });
+    }
+  }
+
+  for (let i = 0; i < sourceCount; i += 1) {
+    doc.deletePage(1);
+  }
+  return doc;
+}
+
+export async function gerarRelatorioPDF(report, { includeReceipts = true, apiBaseURL = '', orientation = 'portrait' } = {}) {
   const { viagem, distancia_percorrida_km: distancia, total_horas_trabalhadas: horas, total_despesas: totalDespesas } = report;
   const clientes = viagem?.clientes || [];
   const clientesTexto = clientes.join(', ') || 'Viagem';
@@ -404,6 +459,10 @@ export async function gerarRelatorioPDF(report, { includeReceipts = true, apiBas
   }
 
   drawFooter(doc, y);
+
+  if (orientation === 'landscape') {
+    return composeLandscape2Up(doc);
+  }
 
   return doc;
 }

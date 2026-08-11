@@ -24,6 +24,7 @@ const RelatorioViagem = () => {
   const { appConfig } = useAuth();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [printOrientationOpen, setPrintOrientationOpen] = useState(false);
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -56,9 +57,18 @@ const RelatorioViagem = () => {
 
   const isImageUrl = (url) => /\.(png|jpe?g|gif|webp)$/i.test(url);
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
+    setPrintOrientationOpen(true);
+  };
+
+  const runPrint = async (orientation) => {
+    setPrintOrientationOpen(false);
     try {
-      const doc = await gerarRelatorioPDF(report, { includeReceipts, apiBaseURL: api.defaults.baseURL || '' });
+      const doc = await gerarRelatorioPDF(report, {
+        includeReceipts,
+        apiBaseURL: api.defaults.baseURL || '',
+        orientation,
+      });
       doc.autoPrint();
       window.open(doc.output('bloburl'), '_blank');
     } catch (err) {
@@ -79,6 +89,40 @@ const RelatorioViagem = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in py-8 px-4 print:py-0 print:px-0 print:max-w-none print:mx-0 print:space-y-0">
+      {printOrientationOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 print:hidden">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 max-w-sm w-full space-y-4">
+            <h2 className="text-lg font-bold text-gray-800">Orientação da impressão</h2>
+            <p className="text-sm text-gray-500">
+              Retrato: uma folha por página. Paisagem: horizontal com duas folhas por página.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => runPrint('portrait')}
+                className="w-full bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition-all"
+              >
+                Retrato
+              </button>
+              <button
+                type="button"
+                onClick={() => runPrint('landscape')}
+                className="w-full bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all"
+              >
+                Paisagem (2 folhas por página)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrintOrientationOpen(false)}
+                className="w-full text-sm font-bold text-gray-500 hover:text-gray-700 py-2"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(`/viagens/${id}`)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
