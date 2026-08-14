@@ -12,10 +12,10 @@ crud.ensure_usuarios_veiculos_schema(engine)
 
 app = FastAPI(    
     title="Sistema de Viagens",
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json"
+    docs_url="/docs",
+    openapi_url="/openapi.json"
 )
-app.mount("/api/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
+app.mount("/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,14 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(usuarios.router, prefix="/api/usuarios", tags=["usuarios"])
-app.include_router(veiculos.router, prefix="/api/veiculos", tags=["veiculos"])
-app.include_router(viagens.router, prefix="/api/viagens", tags=["viagens"])
-app.include_router(despesas.router, prefix="/api/despesas", tags=["despesas"])
-app.include_router(atividades.router, prefix="/api/atividades", tags=["atividades"])
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(config.router, prefix="/api/config", tags=["config"])
-app.include_router(ia.router, prefix="/api/ia", tags=["ia"])
+app.include_router(usuarios.router, prefix="/usuarios", tags=["usuarios"])
+app.include_router(veiculos.router, prefix="/veiculos", tags=["veiculos"])
+app.include_router(viagens.router, prefix="/viagens", tags=["viagens"])
+app.include_router(despesas.router, prefix="/despesas", tags=["despesas"])
+app.include_router(atividades.router, prefix="/atividades", tags=["atividades"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(config.router, prefix="/config", tags=["config"])
+app.include_router(ia.router, prefix="/ia", tags=["ia"])
 
 
 @app.on_event("startup")

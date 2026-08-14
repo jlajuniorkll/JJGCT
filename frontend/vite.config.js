@@ -6,9 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Dev local: se VITE_API_BASE_URL não estiver setado, o front chama localhost:8000 direto.
+      // Proxy legado mantido caso alguém use base relativa.
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

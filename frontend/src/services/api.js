@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const baseURL = (import.meta?.env?.VITE_API_BASE_URL || '/api').trim();
+const baseURL = (
+  import.meta?.env?.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? 'https://api.viagem.dartt.com.br' : 'http://localhost:8000')
+).trim();
 
 const api = axios.create({
   baseURL,
